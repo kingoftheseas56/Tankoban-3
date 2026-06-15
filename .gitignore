@@ -1,0 +1,25 @@
+# Build output
+/out/
+/out_*/
+/build/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+build.ninja
+.ninja_deps
+.ninja_log
+
+# Binaries / artifacts
+*.exe
+*.dll
+*.obj
+*.pdb
+*.ilk
+
+# IDE / editor
+*.user
+.vs/
+.vscode/
+.idea/
