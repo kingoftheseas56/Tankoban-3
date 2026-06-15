@@ -57,10 +57,12 @@ void CatalogRow::setStatus(const QString& text)
 void CatalogRow::setItems(const QVector<MetaItem>& items)
 {
     setStatus(items.isEmpty() ? QStringLiteral("No results") : QString());
-    for (const MetaItem& it : items) {
-        auto* card = new PosterCard(it, m_track);
-        // insert before the trailing stretch
-        m_trackLayout->insertWidget(m_trackLayout->count() - 1, card);
+    // Cap the initial render (long rows of dozens of covers were the slowness);
+    // proper load-on-scroll + a "See all" page come later.
+    const int cap = qMin(items.size(), 20);
+    for (int i = 0; i < cap; ++i) {
+        auto* card = new PosterCard(items.at(i), m_track);
+        m_trackLayout->insertWidget(m_trackLayout->count() - 1, card); // before stretch
     }
 }
 

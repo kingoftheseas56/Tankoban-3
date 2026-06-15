@@ -1,34 +1,43 @@
-// Tankoban 3 — Sidebar (Step 2). See Sidebar.h.
+// Tankoban 3 — Sidebar (Step 2 / 2b). See Sidebar.h.
 
 #include "ui/Sidebar.h"
 
+#include "ui/Icons.h"
+
+#include <QColor>
 #include <QFrame>
 #include <QLabel>
 #include <QPushButton>
+#include <QSize>
 #include <QStyle>
 #include <QVBoxLayout>
 
 namespace tankoban {
 
+namespace {
+const QColor kIconMuted(QStringLiteral("#aab1bd"));
+const QColor kIconActive(QStringLiteral("#f3f1ea"));
+constexpr int kIconPx = 22;
+} // namespace
+
 Sidebar::Sidebar(QWidget* parent)
     : QWidget(parent)
 {
     setObjectName(QStringLiteral("Sidebar"));
-    setAttribute(Qt::WA_StyledBackground, true); // let the #Sidebar QSS background paint
-    setFixedWidth(240);                          // Harbor expanded width (collapse: later)
+    setAttribute(Qt::WA_StyledBackground, true);
+    setFixedWidth(240);
 
     auto* root = new QVBoxLayout(this);
     root->setContentsMargins(16, 0, 16, 16);
     root->setSpacing(0);
 
-    // Brand wordmark header (Harbor: h-20 / 80px, Fraunces serif).
     auto* brand = new QLabel(QStringLiteral("Tankoban"), this);
     brand->setObjectName(QStringLiteral("Brand"));
     brand->setFixedHeight(80);
     brand->setAlignment(Qt::AlignVCenter | Qt::AlignLeft);
     root->addWidget(brand);
 
-    // PRIMARY group (Harbor minus the cut IPTV cluster: Live/Playlists).
+    // PRIMARY group (Harbor minus the cut IPTV cluster).
     auto* primary = new QVBoxLayout();
     primary->setSpacing(6);
     addNavItem(primary, QStringLiteral("home"),     QStringLiteral("Home"));
@@ -38,7 +47,6 @@ Sidebar::Sidebar(QWidget* parent)
     addNavItem(primary, QStringLiteral("anime"),    QStringLiteral("Anime"));
     root->addLayout(primary);
 
-    // Hairline divider between the two groups.
     root->addSpacing(12);
     auto* divider = new QFrame(this);
     divider->setObjectName(QStringLiteral("NavDivider"));
@@ -67,6 +75,8 @@ void Sidebar::addNavItem(QVBoxLayout* group, const QString& id, const QString& l
     btn->setObjectName(QStringLiteral("NavItem"));
     btn->setCursor(Qt::PointingHandCursor);
     btn->setFixedHeight(50);
+    btn->setIcon(navIcon(id, kIconMuted, kIconPx));
+    btn->setIconSize(QSize(kIconPx, kIconPx));
     btn->setProperty("active", false);
     connect(btn, &QPushButton::clicked, this, [this, id]() { emit viewActivated(id); });
     group->addWidget(btn);
@@ -81,11 +91,13 @@ void Sidebar::setActive(const QString& id)
     };
     if (auto* prev = m_items.value(m_active, nullptr)) {
         prev->setProperty("active", false);
+        prev->setIcon(navIcon(m_active, kIconMuted, kIconPx));
         repolish(prev);
     }
     m_active = id;
     if (auto* cur = m_items.value(id, nullptr)) {
         cur->setProperty("active", true);
+        cur->setIcon(navIcon(id, kIconActive, kIconPx));
         repolish(cur);
     }
 }

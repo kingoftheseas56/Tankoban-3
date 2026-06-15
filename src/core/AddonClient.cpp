@@ -19,8 +19,11 @@ namespace {
 // are sharp (the Tankoban 2 blur lesson, baked in from the start).
 QString upgradePoster(QString url)
 {
-    url.replace(QStringLiteral("/poster/small/"), QStringLiteral("/poster/large/"));
-    url.replace(QStringLiteral("/poster/medium/"), QStringLiteral("/poster/large/"));
+    // Right-size to /medium/ (~110KB, sharp at up to 2x on a ~150px card) instead of
+    // /large/ (~238KB): the fix for "posters load painfully slow". /large/ was
+    // overkill for the card size and roughly doubled the data per cover.
+    url.replace(QStringLiteral("/poster/small/"), QStringLiteral("/poster/medium/"));
+    url.replace(QStringLiteral("/poster/large/"), QStringLiteral("/poster/medium/"));
     return url;
 }
 } // namespace

@@ -9,8 +9,8 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 # Network: the addon engine (Stremio catalog/meta/stream over HTTP).
-# OpenGL/OpenGLWidgets (libmpv player) + Svg (icons) get added as we reach them.
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
+# Svg: sidebar nav icons. OpenGL/OpenGLWidgets (libmpv player) get added later.
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network Svg)
 
 qt_add_executable(Tankoban3
     src/main.cpp
@@ -20,6 +20,7 @@ qt_add_executable(Tankoban3
     src/core/AddonClient.cpp
 
     src/ui/Theme.h
+    src/ui/Icons.h
     src/ui/Sidebar.h
     src/ui/Sidebar.cpp
     src/ui/MainWindow.h
@@ -39,4 +40,5 @@ target_link_libraries(Tankoban3 PRIVATE
     Qt6::Gui
     Qt6::Widgets
     Qt6::Network
+    Qt6::Svg
 )
