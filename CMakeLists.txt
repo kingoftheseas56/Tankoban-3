@@ -8,12 +8,17 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-# Step 1 needs only the GUI core. More components (Network for the addon engine,
-# OpenGL/OpenGLWidgets for the libmpv player) get added incrementally as we reach them.
+# Step 2 needs the GUI core. More components (Network for the addon engine,
+# OpenGL/OpenGLWidgets for the libmpv player, Svg for icons) get added as we reach them.
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 
 qt_add_executable(Tankoban3
     src/main.cpp
+    src/ui/Theme.h
+    src/ui/Sidebar.h
+    src/ui/Sidebar.cpp
+    src/ui/MainWindow.h
+    src/ui/MainWindow.cpp
 )
 
 target_include_directories(Tankoban3 PRIVATE ${CMAKE_SOURCE_DIR}/src)
