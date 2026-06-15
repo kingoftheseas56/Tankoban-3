@@ -42,3 +42,14 @@ target_link_libraries(Tankoban3 PRIVATE
     Qt6::Network
     Qt6::Svg
 )
+
+# Deploy the Qt WebP image-format plugin — this Qt build ships none, and metahub
+# serves many posters as WebP (they silently fail to decode without it). The
+# self-contained DLL lives in resources/imageformats (committed).
+add_custom_command(TARGET Tankoban3 POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:Tankoban3>/imageformats"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/resources/imageformats/qwebp.dll"
+            "$<TARGET_FILE_DIR:Tankoban3>/imageformats/qwebp.dll"
+    COMMENT "Deploying qwebp.dll (WebP poster decoder)")
+

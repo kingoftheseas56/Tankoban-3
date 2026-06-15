@@ -75,6 +75,14 @@ QLabel#Poster {
 }
 QWidget#PosterCard[hover="true"] QLabel#Poster { border: 2px solid #e8b923; }
 QLabel#PosterTitle { color: #aab1bd; font-size: 12px; }
+
+/* ── Row hover edge-arrows (Harbor: hidden scrollbar, arrows on hover) ── */
+QPushButton#RowArrow {
+    background: rgba(18,19,23,0.86);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 18px;
+}
+QPushButton#RowArrow:hover { background: rgba(45,51,63,0.96); }
 )qss");
 }
 
