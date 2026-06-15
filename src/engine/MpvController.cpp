@@ -98,7 +98,14 @@ void MpvController::initialize()
     // render-API path (all platforms here — Qt owns the GL surface)
     setOpt("vo", "libmpv");
     setOpt("force-window", "no");
-    setOpt("hwdec", "auto");
+    // hwdec=no (CPU decode): on Intel UHD 620 the GL render API can't import
+    // D3D11/CUDA hwdec surfaces (WGL_NV_DX_interop is broken on this GPU) ->
+    // black video. CPU decode of 1080p is well within budget. Env override:
+    // TANKOBAN3_HWDEC=<mode> for GPUs with working GL interop.
+    {
+        const QByteArray hw = qgetenv("TANKOBAN3_HWDEC");
+        setOpt("hwdec", hw.isEmpty() ? "no" : hw.constData());
+    }
 
     mpv_request_log_messages(m_mpv, "warn");
 
@@ -262,8 +269,13 @@ void MpvController::onWakeup()
             m_snap.errorMessage.clear();
             emitSnapshot();
             break;
+        case MPV_EVENT_LOG_MESSAGE: {   // surface mpv warnings (level == warn)
+            auto* lm = static_cast<mpv_event_log_message*>(ev->data);
+            if (lm) qWarning("[mpv] %s: %s", lm->prefix, lm->text);
+            break;
+        }
         default:
-            break;   // playback-restart / seek / log etc. are no-ops (§0.2)
+            break;   // playback-restart / seek etc. are no-ops (§0.2)
         }
     }
 }
