@@ -1,4 +1,4 @@
-// Tankoban 3 — PosterCard (Step 3). See PosterCard.h.
+// Tankoban 3 — PosterCard (Step 3 / lazy). See PosterCard.h.
 
 #include "ui/PosterCard.h"
 
@@ -6,10 +6,12 @@
 #include <QImage>
 #include <QLabel>
 #include <QNetworkAccessManager>
+#include <QNetworkDiskCache>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPixmap>
 #include <QPointer>
+#include <QStandardPaths>
 #include <QStyle>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -17,16 +19,27 @@
 namespace tankoban {
 
 namespace {
-// App-lifetime shared manager for cover images.
+// App-lifetime shared manager for cover images, with an on-disk cache so re-launches
+// are instant (the data path metahub allows via cache headers).
 QNetworkAccessManager* imageNam()
 {
-    static QNetworkAccessManager* nam = new QNetworkAccessManager();
+    static QNetworkAccessManager* nam = [] {
+        auto* m = new QNetworkAccessManager();
+        auto* cache = new QNetworkDiskCache(m);
+        cache->setCacheDirectory(
+            QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+            + QStringLiteral("/poster-cache"));
+        cache->setMaximumCacheSize(qint64(256) * 1024 * 1024); // 256 MB
+        m->setCache(cache);
+        return m;
+    }();
     return nam;
 }
 } // namespace
 
 PosterCard::PosterCard(const MetaItem& item, QWidget* parent)
     : QWidget(parent)
+    , m_url(item.poster)
 {
     setObjectName(QStringLiteral("PosterCard"));
     setAttribute(Qt::WA_StyledBackground, true);
@@ -48,16 +61,22 @@ PosterCard::PosterCard(const MetaItem& item, QWidget* parent)
     m_title->setFixedWidth(kPosterW);
     m_title->setWordWrap(false);
     col->addWidget(m_title);
+}
 
-    loadPoster(item.poster);
+void PosterCard::ensureLoaded()
+{
+    if (m_loadRequested || m_url.isEmpty())
+        return;
+    m_loadRequested = true;
+    loadPoster(m_url);
 }
 
 void PosterCard::loadPoster(const QString& url)
 {
-    if (url.isEmpty())
-        return;
     QNetworkRequest req((QUrl(url)));
     req.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Tankoban3/0.1"));
+    req.setAttribute(QNetworkRequest::CacheLoadControlAttribute,
+                     QNetworkRequest::PreferCache); // posters are immutable per imdb id
 
     QNetworkReply* reply = imageNam()->get(req);
     QPointer<PosterCard> self(this);
@@ -71,12 +90,10 @@ void PosterCard::loadPoster(const QString& url)
         if (!img.loadFromData(reply->readAll()))
             return;
 
-        // FULL-QUALITY, DPR-aware: scale to physical pixels, smooth, set DPR.
         const qreal dpr = self->devicePixelRatioF();
         const QSize physical(int(kPosterW * dpr), int(kPosterH * dpr));
         QImage scaled = img.scaled(physical, Qt::KeepAspectRatioByExpanding,
                                    Qt::SmoothTransformation);
-        // center-crop to the exact target box
         const int x = qMax(0, (scaled.width() - physical.width()) / 2);
         const int y = qMax(0, (scaled.height() - physical.height()) / 2);
         scaled = scaled.copy(x, y, qMin(physical.width(), scaled.width()),
