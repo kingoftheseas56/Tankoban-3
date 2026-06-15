@@ -54,6 +54,27 @@ QLabel#PlaceholderTitle {
     font-weight: 600;
 }
 QLabel#PlaceholderSub { color: #8b909b; font-size: 13px; letter-spacing: 1px; }
+
+/* ── Catalogue rows + poster cards (Step 3) ── */
+QScrollArea#HomeScroll, QScrollArea#RowScroll { background: transparent; border: none; }
+QScrollArea#HomeScroll > QWidget, QScrollArea#RowScroll > QWidget { background: transparent; }
+QWidget#RowTrack { background: transparent; }
+
+QLabel#RowTitle {
+    color: #f3f1ea;
+    font-family: "Fraunces", "Georgia", serif;
+    font-size: 20px;
+    font-weight: 600;
+}
+QLabel#RowStatus { color: #8b909b; font-size: 13px; }
+
+QLabel#Poster {
+    background: #1a1d24;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 6px;
+}
+QWidget#PosterCard[hover="true"] QLabel#Poster { border: 2px solid #e8b923; }
+QLabel#PosterTitle { color: #aab1bd; font-size: 12px; }
 )qss");
 }
 

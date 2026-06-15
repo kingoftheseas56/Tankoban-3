@@ -2,6 +2,7 @@
 
 #include "ui/MainWindow.h"
 
+#include "ui/HomePage.h"
 #include "ui/Sidebar.h"
 
 #include <QHBoxLayout>
@@ -44,8 +45,12 @@ MainWindow::MainWindow(QWidget* parent)
     row->addWidget(m_content, 1);
 
     for (const auto& v : kViews) {
-        const int idx = m_content->addWidget(makePlaceholder(QString::fromLatin1(v.title)));
-        m_pageIndex.insert(QString::fromLatin1(v.id), idx);
+        const QString id = QString::fromLatin1(v.id);
+        QWidget* page = (id == QLatin1String("home"))
+            ? static_cast<QWidget*>(new HomePage(this))
+            : makePlaceholder(QString::fromLatin1(v.title));
+        const int idx = m_content->addWidget(page);
+        m_pageIndex.insert(id, idx);
     }
 
     connect(m_sidebar, &Sidebar::viewActivated, this, [this](const QString& id) {

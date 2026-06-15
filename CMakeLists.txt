@@ -8,17 +8,28 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-# Step 2 needs the GUI core. More components (Network for the addon engine,
-# OpenGL/OpenGLWidgets for the libmpv player, Svg for icons) get added as we reach them.
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
+# Network: the addon engine (Stremio catalog/meta/stream over HTTP).
+# OpenGL/OpenGLWidgets (libmpv player) + Svg (icons) get added as we reach them.
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
 
 qt_add_executable(Tankoban3
     src/main.cpp
+
+    src/core/MetaItem.h
+    src/core/AddonClient.h
+    src/core/AddonClient.cpp
+
     src/ui/Theme.h
     src/ui/Sidebar.h
     src/ui/Sidebar.cpp
     src/ui/MainWindow.h
     src/ui/MainWindow.cpp
+    src/ui/PosterCard.h
+    src/ui/PosterCard.cpp
+    src/ui/CatalogRow.h
+    src/ui/CatalogRow.cpp
+    src/ui/HomePage.h
+    src/ui/HomePage.cpp
 )
 
 target_include_directories(Tankoban3 PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -27,4 +38,5 @@ target_link_libraries(Tankoban3 PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets
+    Qt6::Network
 )
