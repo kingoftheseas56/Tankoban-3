@@ -39,6 +39,13 @@ inline QString navSvgInner(const QString& id)
         return QStringLiteral("<path d='m15 18-6-6 6-6'/>");
     if (id == QLatin1String("chev-right"))
         return QStringLiteral("<path d='m9 18 6-6-6-6'/>");
+    // Harbor's CollapseToggle glyphs (lucide PanelLeftClose / PanelLeftOpen).
+    if (id == QLatin1String("panel-collapse"))
+        return QStringLiteral("<rect width='18' height='18' x='3' y='3' rx='2'/>"
+                              "<path d='M9 3v18'/><path d='m16 15-3-3 3-3'/>");
+    if (id == QLatin1String("panel-expand"))
+        return QStringLiteral("<rect width='18' height='18' x='3' y='3' rx='2'/>"
+                              "<path d='M9 3v18'/><path d='m14 9 3 3-3 3'/>");
     return QString();
 }
 

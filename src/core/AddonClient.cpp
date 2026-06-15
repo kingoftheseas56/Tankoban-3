@@ -64,6 +64,10 @@ void AddonClient::fetchCatalog(const QString& rowKey, const QString& base,
             m.name = o.value(QStringLiteral("name")).toString();
             m.poster = upgradePoster(o.value(QStringLiteral("poster")).toString());
             m.background = o.value(QStringLiteral("background")).toString();
+            m.description = o.value(QStringLiteral("description")).toString();
+            m.releaseInfo = o.value(QStringLiteral("releaseInfo")).toString();
+            m.imdbRating = o.value(QStringLiteral("imdbRating")).toString();
+            m.runtime = o.value(QStringLiteral("runtime")).toString();
             if (!m.poster.isEmpty())
                 items.push_back(m);
         }

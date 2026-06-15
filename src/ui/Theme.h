@@ -44,6 +44,25 @@ QPushButton#NavItem {
 QPushButton#NavItem:hover            { background: rgba(255,255,255,0.05); color: #f3f1ea; }
 QPushButton#NavItem[active="true"]   { background: #232833; color: #f3f1ea; font-weight: 600; }
 
+/* Collapsed rail (Harbor: icon-only, centered, active = gold icon with NO pill). */
+QPushButton#NavItem[collapsed="true"]                { text-align: center; padding-left: 0; padding-right: 0; background: transparent; }
+QPushButton#NavItem[collapsed="true"]:hover          { background: rgba(255,255,255,0.05); }
+QPushButton#NavItem[collapsed="true"][active="true"] { background: transparent; }
+
+/* Collapse toggle (Harbor's CollapseToggle, bottom of the rail). */
+QPushButton#CollapseToggle {
+    color: #8b909b;
+    background: transparent;
+    border: none;
+    text-align: left;
+    padding-left: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+}
+QPushButton#CollapseToggle:hover                { background: rgba(255,255,255,0.05); color: #aab1bd; }
+QPushButton#CollapseToggle[collapsed="true"]    { text-align: center; padding-left: 0; }
+
 QFrame#NavDivider { background: rgba(255,255,255,0.07); border: none; }
 
 /* ── Placeholder content pages ── */
@@ -83,6 +102,62 @@ QPushButton#RowArrow {
     border-radius: 18px;
 }
 QPushButton#RowArrow:hover { background: rgba(45,51,63,0.96); }
+
+/* ── Featured hero (Step 3b — Harbor hero-carousel + hero) ── */
+QWidget#FeaturedHero, QWidget#HeroContent { background: transparent; }
+
+QLabel#HeroRank {
+    background: rgba(18,19,23,0.85);
+    border-radius: 6px;
+    padding: 4px 10px;
+    color: #f3f1ea;
+    font-size: 12px;
+    font-weight: 600;
+}
+QLabel#HeroTitle {
+    color: #f3f1ea;
+    font-family: "Fraunces", "Iowan Old Style", "Georgia", serif;
+    font-size: 60px;
+    font-weight: 500;
+}
+QLabel#HeroDesc  { color: #aab1bd; font-size: 16px; }
+QLabel#HeroStats { color: #f3f1ea; font-size: 14px; }
+
+QPushButton#HeroPlayBtn {
+    background: #f3f1ea;
+    color: #121317;
+    border: none;
+    border-radius: 24px;
+    padding: 0 28px;
+    font-size: 15px;
+    font-weight: 600;
+}
+QPushButton#HeroPlayBtn:hover { background: #ffffff; }
+
+QPushButton#HeroAddBtn {
+    background: rgba(18,19,23,0.55);
+    color: #f3f1ea;
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 24px;
+    padding: 0 22px;
+    font-size: 15px;
+    font-weight: 500;
+}
+QPushButton#HeroAddBtn:hover {
+    background: rgba(18,19,23,0.78);
+    border-color: rgba(255,255,255,0.28);
+}
+QPushButton#HeroAddBtn[inwatch="true"] {
+    color: #e8b923;
+    border-color: rgba(232,185,35,0.5);
+}
+
+QPushButton#HeroDot {
+    border: none;
+    border-radius: 3px;
+    background: rgba(170,177,189,0.7);
+}
+QPushButton#HeroDot[active="true"] { background: #f3f1ea; }
 )qss");
 }
 

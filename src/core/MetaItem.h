@@ -14,7 +14,11 @@ struct MetaItem {
     QString type;        // "movie" | "series"
     QString name;
     QString poster;      // full-res poster URL
-    QString background;  // wide backdrop URL (for the hero, later)
+    QString background;  // wide backdrop URL (the hero)
+    QString description; // synopsis (the hero)
+    QString releaseInfo; // year, e.g. "2026" (the hero stat line)
+    QString imdbRating;  // e.g. "8.1" (the hero stat line)
+    QString runtime;     // e.g. "141 min" (the hero stat line)
 };
 
 } // namespace tankoban
