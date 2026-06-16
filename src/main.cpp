@@ -6,8 +6,7 @@
 
 #include "ui/MainWindow.h"
 #include "ui/Theme.h"
-#include "engine/MpvController.h"
-#include "engine/MpvGlWidget.h"
+#include "player/PlayerView.h"
 
 #include <QApplication>
 
@@ -18,18 +17,16 @@ int main(int argc, char** argv)
     app.setOrganizationName(QStringLiteral("Tankoban"));
     app.setStyleSheet(tankoban::appStyleSheet());
 
-    // Plan 1 Task 4 — temporary render smoke: video into a bare QOpenGLWidget.
-    if (qEnvironmentVariableIsSet("TANKOBAN3_RENDER_SMOKE")) {
-        QString src = qEnvironmentVariable("TANKOBAN3_RENDER_SMOKE");
+    // Plan 1 — standalone player demo: TANKOBAN3_PLAYER_DEMO=<url|path> ("1" = default sample).
+    if (qEnvironmentVariableIsSet("TANKOBAN3_PLAYER_DEMO")) {
+        QString src = qEnvironmentVariable("TANKOBAN3_PLAYER_DEMO");
         if (src.isEmpty() || src == QStringLiteral("1"))
             src = QStringLiteral("https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4");
-        auto* ctrl = new MpvController();
-        ctrl->initialize();
-        auto* w = new MpvGlWidget(ctrl);
-        w->setWindowTitle(QStringLiteral("Tankoban 3 — render smoke"));
-        w->resize(960, 540);
-        w->show();
-        ctrl->load(src);
+        auto* view = new PlayerView();
+        view->setWindowTitle(QStringLiteral("Tankoban 3 — player"));
+        view->resize(1280, 720);       // normal-state size (un-maximize target)
+        view->showMaximized();         // start full-fit
+        view->play(src);
         return app.exec();
     }
 

@@ -22,6 +22,12 @@ qt_add_executable(Tankoban3
     src/engine/MpvGlWidget.cpp
     src/util/TimeFormat.h
     src/util/TimeFormat.cpp
+    src/engine/PlaybackClock.h
+    src/engine/PlaybackClock.cpp
+    src/player/PlayerView.h
+    src/player/PlayerView.cpp
+    src/player/HotkeyDispatcher.h
+    src/player/HotkeyDispatcher.cpp
 
     src/core/MetaItem.h
     src/core/AddonClient.h
