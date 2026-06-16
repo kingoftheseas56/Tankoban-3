@@ -230,6 +230,182 @@ QPushButton#DetailBack {
     font-size: 18px;
 }
 QPushButton#DetailBack:hover { background: rgba(45,51,63,0.95); }
+
+/* ── Addons store (Addons path — Harbor addons.tsx) ── */
+QPushButton#AddonTab {
+    background: transparent;
+    border: none;
+    color: #8b909b;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 6px 2px;
+    margin-right: 16px;
+}
+QPushButton#AddonTab:hover            { color: #aab1bd; }
+QPushButton#AddonTab[active="true"]   { color: #f3f1ea; border-bottom: 2px solid #e8b923; }
+
+QLineEdit#AddonUrlInput {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 12px;
+    padding: 0 14px;
+    color: #f3f1ea;
+    font-size: 14px;
+    selection-background-color: #e8b923;
+    selection-color: #121317;
+}
+QLineEdit#AddonUrlInput:focus { border-color: #8b909b; }
+
+QPushButton#AddonInstallBtn {
+    background: #f3f1ea;
+    color: #121317;
+    border: none;
+    border-radius: 12px;
+    padding: 0 22px;
+    font-size: 14px;
+    font-weight: 600;
+}
+QPushButton#AddonInstallBtn:hover { background: #ffffff; }
+
+QLabel#AddonStatus              { color: #7ddc8f; font-size: 13px; }
+QLabel#AddonStatus[err="true"]  { color: #e8736b; }
+
+QScrollArea#AddonScroll { background: #121317; border: none; }
+QScrollArea#AddonScroll > QWidget { background: #121317; }
+
+QLabel#AddonPanePlaceholder { color: #8b909b; font-size: 15px; }
+
+QWidget#AddonInstalledRow {
+    background: #1a1d24;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+}
+QWidget#AddonInstalledRow:hover { border: 1px solid rgba(255,255,255,0.14); }
+QLabel#AddonAvatar {
+    background: #232833;
+    border-radius: 10px;
+    color: #e8b923;
+    font-family: "Fraunces", "Georgia", serif;
+    font-size: 22px;
+    font-weight: 600;
+}
+QLabel#AddonName { color: #f3f1ea; font-size: 15px; font-weight: 600; }
+QLabel#AddonSub  { color: #8b909b; font-size: 12px; }
+QPushButton#AddonRemoveBtn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 14px;
+    padding: 6px 14px;
+    color: #aab1bd;
+    font-size: 12px;
+    font-weight: 600;
+}
+QPushButton#AddonRemoveBtn:hover {
+    background: rgba(232,115,107,0.15);
+    color: #e8736b;
+    border: 1px solid rgba(232,115,107,0.40);
+}
+
+QWidget#AddonEmpty {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 18px;
+}
+QLabel#AddonEmptyTitle {
+    color: #f3f1ea;
+    font-family: "Fraunces", "Georgia", serif;
+    font-size: 22px;
+    font-weight: 600;
+}
+QLabel#AddonEmptyText { color: #8b909b; font-size: 13px; }
+
+/* ── Addons marketplace (Browse/Discover — Harbor store) ── */
+QLineEdit#AddonSearchInput {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 20px;
+    padding: 0 16px;
+    color: #f3f1ea;
+    font-size: 14px;
+    selection-background-color: #e8b923;
+    selection-color: #121317;
+}
+QLineEdit#AddonSearchInput:focus { border-color: #8b909b; }
+
+QPushButton#AddonAdultBtn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 0 16px;
+    color: #8b909b;
+    font-size: 12px;
+    font-weight: 700;
+}
+QPushButton#AddonAdultBtn:checked {
+    background: rgba(255,255,255,0.10);
+    color: #f3f1ea;
+    border-color: #f3f1ea;
+}
+
+QScrollArea#StoreCatScroll { background: transparent; border: none; }
+QScrollArea#StoreCatScroll > QWidget { background: transparent; }
+
+QPushButton#StoreChip {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 6px 14px;
+    color: #aab1bd;
+    font-size: 13px;
+    font-weight: 600;
+}
+QPushButton#StoreChip:hover   { background: rgba(255,255,255,0.08); color: #f3f1ea; }
+QPushButton#StoreChip:checked { background: #f3f1ea; color: #121317; border-color: #f3f1ea; }
+
+QPushButton#StoreLoadMore {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 20px;
+    padding: 0 28px;
+    color: #f3f1ea;
+    font-size: 13px;
+    font-weight: 600;
+}
+QPushButton#StoreLoadMore:hover { background: rgba(255,255,255,0.10); }
+
+QWidget#StoreCard {
+    background: #1a1d24;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+}
+QWidget#StoreCard[hover="true"] { border: 1px solid rgba(232,185,35,0.5); }
+QLabel#StoreCardLogo {
+    background: #232833;
+    border-radius: 10px;
+    color: #e8b923;
+    font-family: "Fraunces", "Georgia", serif;
+    font-size: 20px;
+    font-weight: 600;
+}
+QLabel#StoreCardName  { color: #f3f1ea; font-size: 15px; font-weight: 600; }
+QLabel#StoreCardStars { color: #e8b923; font-size: 12px; font-weight: 600; }
+QLabel#StoreCardDesc  { color: #8b909b; font-size: 12px; }
+QLabel#StoreCardCat   { color: #8b909b; font-size: 11px; }
+QPushButton#StoreCardInstall {
+    background: #f3f1ea;
+    color: #121317;
+    border: none;
+    border-radius: 15px;
+    padding: 0 16px;
+    font-size: 12px;
+    font-weight: 600;
+}
+QPushButton#StoreCardInstall:hover { background: #ffffff; }
+QPushButton#StoreCardInstall[installed="true"] {
+    background: transparent;
+    color: #7ddc8f;
+    border: 1px solid rgba(125,220,143,0.40);
+}
 )qss");
 }
 

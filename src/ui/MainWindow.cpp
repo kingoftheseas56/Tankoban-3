@@ -1,8 +1,10 @@
-// Tankoban 3 — MainWindow (Step 2 + Detail). See MainWindow.h.
+// Tankoban 3 — MainWindow (Step 2 + Detail + Addons). See MainWindow.h.
 
 #include "ui/MainWindow.h"
 
+#include "core/AddonRegistry.h"
 #include "core/MetaDetail.h"
+#include "ui/AddonsPage.h"
 #include "ui/DetailPage.h"
 #include "ui/HomePage.h"
 #include "ui/Sidebar.h"
@@ -45,7 +47,11 @@ MainWindow::MainWindow(QWidget* parent)
 
     m_content = new QStackedWidget(this);
     m_content->setObjectName(QStringLiteral("Content"));
+    m_content->setAttribute(Qt::WA_StyledBackground, true); // opaque backstop (no page bleed)
     row->addWidget(m_content, 1);
+
+    m_registry = new AddonRegistry(this);
+    m_registry->load();
 
     for (const auto& v : kViews) {
         const QString id = QString::fromLatin1(v.id);
@@ -54,6 +60,8 @@ MainWindow::MainWindow(QWidget* parent)
             auto* home = new HomePage(this);
             connect(home, &HomePage::openDetailRequested, this, &MainWindow::openDetail);
             page = home;
+        } else if (id == QLatin1String("addons")) {
+            page = new AddonsPage(m_registry, this);
         } else {
             page = makePlaceholder(QString::fromLatin1(v.title));
         }

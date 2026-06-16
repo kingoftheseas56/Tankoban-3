@@ -1,8 +1,9 @@
-// Tankoban 3 — MainWindow (Step 2 + Detail).
+// Tankoban 3 — MainWindow (Step 2 + Detail + Addons).
 //
 // The app shell: [ Sidebar | content QStackedWidget ]. Each nav id maps to a page in
 // the stack. The Detail page is pushed over the shell (sidebar stays visible, Harbor-
-// style) via openDetail(); Back returns to the prior route.
+// style) via openDetail(); Back returns to the prior route. The AddonRegistry is owned
+// here and shared with the Addons page (and later the catalog/stream services).
 
 #pragma once
 
@@ -17,6 +18,7 @@ namespace tankoban {
 
 class Sidebar;
 class DetailPage;
+class AddonRegistry;
 
 class MainWindow : public QWidget {
     Q_OBJECT
@@ -30,6 +32,7 @@ private:
     Sidebar* m_sidebar = nullptr;
     QStackedWidget* m_content = nullptr;
     QHash<QString, int> m_pageIndex;
+    AddonRegistry* m_registry = nullptr;
     DetailPage* m_detailPage = nullptr;
     int m_detailIndex = -1;
     int m_returnIndex = 0;

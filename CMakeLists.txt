@@ -21,6 +21,12 @@ qt_add_executable(Tankoban3
     src/core/AddonClient.cpp
     src/core/MetaService.h
     src/core/MetaService.cpp
+    src/core/AddonModels.h
+    src/core/AddonRegistry.h
+    src/core/AddonRegistry.cpp
+    src/core/AddonStoreModels.h
+    src/core/StremioAddonsProvider.h
+    src/core/StremioAddonsProvider.cpp
 
     src/ui/Theme.h
     src/ui/Icons.h
@@ -40,6 +46,14 @@ qt_add_executable(Tankoban3
     src/ui/EpisodeList.cpp
     src/ui/DetailPage.h
     src/ui/DetailPage.cpp
+    src/ui/ToggleSwitch.h
+    src/ui/ToggleSwitch.cpp
+    src/ui/AddonCard.h
+    src/ui/AddonCard.cpp
+    src/ui/BrowsePane.h
+    src/ui/BrowsePane.cpp
+    src/ui/AddonsPage.h
+    src/ui/AddonsPage.cpp
     src/ui/HomePage.h
     src/ui/HomePage.cpp
 )
