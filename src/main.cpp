@@ -34,7 +34,7 @@ int main(int argc, char** argv)
     }
 
     tankoban::MainWindow window;
-    window.show();
+    window.showMaximized();
 
     return app.exec();
 }

@@ -7,11 +7,12 @@
 #include "ui/AddonsPage.h"
 #include "ui/DetailPage.h"
 #include "ui/HomePage.h"
+#include "ui/PlayPickerPage.h"
 #include "ui/Sidebar.h"
 
-#include <QDebug>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QResizeEvent>
 #include <QStackedWidget>
 #include <QVBoxLayout>
 
@@ -74,14 +75,18 @@ MainWindow::MainWindow(QWidget* parent)
     m_detailIndex = m_content->addWidget(m_detailPage);
     connect(m_detailPage, &DetailPage::backRequested, this,
             [this]() { m_content->setCurrentIndex(m_returnIndex); });
-    connect(m_detailPage, &DetailPage::playRequested, this, [](const MetaItem& m) {
-        qInfo() << "[detail] Play -> Play Picker (next slice):" << m.name << m.id;
-    });
+    connect(m_detailPage, &DetailPage::playRequested, this,
+            [this](const MetaItem& m) { openPlayPicker(m, std::nullopt); });
     connect(m_detailPage, &DetailPage::episodeRequested, this,
-            [](const MetaItem& m, const EpisodeItem& ep) {
-                qInfo() << "[detail] Episode -> Play Picker (next slice):" << m.name
-                        << "S" << ep.season << "E" << ep.episode;
-            });
+            [this](const MetaItem& m, const EpisodeItem& ep) { openPlayPicker(m, ep); });
+
+    m_playPicker = new PlayPickerPage(this);
+    m_playPicker->setGeometry(rect());
+    m_playPicker->hide();
+    connect(m_playPicker, &PlayPickerPage::backRequested, this, [this]() {
+        if (m_playPicker)
+            m_playPicker->hide();
+    });
 
     connect(m_sidebar, &Sidebar::viewActivated, this, [this](const QString& id) {
         if (m_pageIndex.contains(id))
@@ -92,6 +97,13 @@ MainWindow::MainWindow(QWidget* parent)
     m_content->setCurrentIndex(m_pageIndex.value(QStringLiteral("home")));
 }
 
+void MainWindow::resizeEvent(QResizeEvent* event)
+{
+    QWidget::resizeEvent(event);
+    if (m_playPicker)
+        m_playPicker->setGeometry(rect());
+}
+
 void MainWindow::openDetail(const MetaItem& meta)
 {
     if (!m_detailPage)
@@ -99,6 +111,29 @@ void MainWindow::openDetail(const MetaItem& meta)
     m_detailPage->load(meta);
     m_returnIndex = m_content->currentIndex();
     m_content->setCurrentIndex(m_detailIndex);
+}
+
+void MainWindow::openPlayPicker(const MetaItem& meta, std::optional<EpisodeItem> episode)
+{
+    if (!m_playPicker)
+        return;
+    m_playPicker->setGeometry(rect());
+    m_playPicker->open(detailFromMetaItem(meta), std::move(episode));
+}
+
+MetaDetail MainWindow::detailFromMetaItem(const MetaItem& meta) const
+{
+    MetaDetail detail;
+    detail.id = meta.id;
+    detail.type = meta.type;
+    detail.name = meta.name;
+    detail.poster = meta.poster;
+    detail.background = meta.background;
+    detail.description = meta.description;
+    detail.releaseInfo = meta.releaseInfo;
+    detail.imdbRating = meta.imdbRating;
+    detail.runtime = meta.runtime;
+    return detail;
 }
 
 QWidget* MainWindow::makePlaceholder(const QString& title)

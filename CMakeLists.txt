@@ -56,8 +56,14 @@ qt_add_executable(Tankoban3
     src/ui/Icons.h
     src/ui/Sidebar.h
     src/ui/Sidebar.cpp
+    src/ui/BackdropLayer.h
+    src/ui/BackdropLayer.cpp
     src/ui/MainWindow.h
     src/ui/MainWindow.cpp
+    src/ui/PickerHeader.h
+    src/ui/PickerHeader.cpp
+    src/ui/PlayPickerPage.h
+    src/ui/PlayPickerPage.cpp
     src/ui/PosterCard.h
     src/ui/PosterCard.cpp
     src/ui/CatalogRow.h
@@ -93,6 +99,7 @@ target_link_libraries(Tankoban3 PRIVATE
     Qt6::OpenGL
     Qt6::OpenGLWidgets
 )
+
 
 # ── libmpv (vendored, in-process; client + render API) ───────────────────────
 set(LIBMPV_DIR ${CMAKE_SOURCE_DIR}/third_party/libmpv)

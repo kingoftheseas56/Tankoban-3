@@ -36,8 +36,18 @@
 - Known issues: Harbor parity still needs review against scoring/*.ts before merge safety is self-certified
 - Next: M5 - PlayPickerPage
 
+## Milestone 5: Play Picker Page Shell
+- Status: Done
+- Built: PlayPickerPage overlay shell, BackdropLayer, PickerHeader, fixed back button, loading spinner, detail-metadata backdrop refresh, and maximized app startup
+- Files: src/ui/PlayPickerPage.h, src/ui/PlayPickerPage.cpp, src/ui/PickerHeader.h, src/ui/PickerHeader.cpp, src/ui/BackdropLayer.h, src/ui/BackdropLayer.cpp, src/ui/MainWindow.h, src/ui/MainWindow.cpp, src/main.cpp, CMakeLists.txt
+- Decisions: M5 is shell-only; stream list, primary card, tier strip, modals, and real stream pipeline remain deferred. DetailPage was not edited; MainWindow owns play/episode signal wiring. The M5 shell uses a fixed content layer rather than a scroll viewport until source rows create real overflow.
+- Smoke: build.bat exit 0; Hemanth eye-smoke accepted after backdrop/full-page layering fix
+- Known issues: Source list and Harbor stream-control parity remain for M6+ when Torrentio/stream rows are wired
+- Next: M6 - Stream list / Stremio rows
+
 ## Token Ledger
 - M1 estimate: 9k tokens
 - M2 estimate: 16k tokens
 - M3 estimate: 31k tokens
 - M4 estimate: 24k tokens
+- M5 estimate: 23k tokens
