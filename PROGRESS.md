@@ -27,7 +27,17 @@
 - Known issues: Harbor parity still needs review against parser/*.ts before merge safety is self-certified
 - Next: M4 - StreamScorer
 
+## Milestone 4: StreamScorer
+- Status: Done
+- Built: StreamScorer - scoreStream, rankAndPick, computeCorpusStats, and Harbor scoring helper functions with v1 data gates
+- Files: src/core/StreamScorer.h, src/core/StreamScorer.cpp, CMakeLists.txt
+- Decisions: debrid/cache slug scoring remains deferred; direct URL ranking and direct-url scoring are active. Corpus, release-date, runtime, and bandwidth rules are implemented but no-op when their inputs are absent.
+- Smoke: build.bat + StreamScorer probe both exit 0
+- Known issues: Harbor parity still needs review against scoring/*.ts before merge safety is self-certified
+- Next: M5 - PlayPickerPage
+
 ## Token Ledger
 - M1 estimate: 9k tokens
 - M2 estimate: 16k tokens
 - M3 estimate: 31k tokens
+- M4 estimate: 24k tokens

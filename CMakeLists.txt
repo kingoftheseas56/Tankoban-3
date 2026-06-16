@@ -44,6 +44,8 @@ qt_add_executable(Tankoban3
     src/core/StreamModels.h
     src/core/StreamParser.h
     src/core/StreamParser.cpp
+    src/core/StreamScorer.h
+    src/core/StreamScorer.cpp
     src/core/StreamService.h
     src/core/StreamService.cpp
     src/core/AddonStoreModels.h
