@@ -21,6 +21,9 @@ class HomePage : public QWidget {
 public:
     explicit HomePage(QWidget* parent = nullptr);
 
+signals:
+    void openDetailRequested(const MetaItem& meta);
+
 private:
     void buildHero(); // (re)build the 4-slide hero pool from the loaded catalogs
 

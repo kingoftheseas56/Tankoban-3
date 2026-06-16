@@ -30,6 +30,9 @@ public:
     void setItems(const QVector<MetaItem>& items);
     void setStatus(const QString& text);
 
+signals:
+    void activated(const MetaItem& item);
+
 protected:
     void showEvent(QShowEvent* e) override;
     void resizeEvent(QResizeEvent* e) override;

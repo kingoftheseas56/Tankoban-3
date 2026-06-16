@@ -5,6 +5,7 @@
 #include <QEnterEvent>
 #include <QImage>
 #include <QLabel>
+#include <QMouseEvent>
 #include <QNetworkAccessManager>
 #include <QNetworkDiskCache>
 #include <QNetworkReply>
@@ -40,6 +41,7 @@ QNetworkAccessManager* imageNam()
 PosterCard::PosterCard(const MetaItem& item, QWidget* parent)
     : QWidget(parent)
     , m_url(item.poster)
+    , m_item(item)
 {
     setObjectName(QStringLiteral("PosterCard"));
     setAttribute(Qt::WA_StyledBackground, true);
@@ -117,6 +119,12 @@ void PosterCard::leaveEvent(QEvent*)
     setProperty("hover", false);
     style()->unpolish(this);
     style()->polish(this);
+}
+
+void PosterCard::mousePressEvent(QMouseEvent* e)
+{
+    if (e->button() == Qt::LeftButton)
+        emit activated(m_item);
 }
 
 } // namespace tankoban

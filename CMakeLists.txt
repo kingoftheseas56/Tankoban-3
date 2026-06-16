@@ -33,8 +33,17 @@ qt_add_executable(Tankoban3
     src/chrome/SeekBar.cpp
 
     src/core/MetaItem.h
+    src/core/MetaDetail.h
     src/core/AddonClient.h
     src/core/AddonClient.cpp
+    src/core/MetaService.h
+    src/core/MetaService.cpp
+    src/core/AddonModels.h
+    src/core/AddonRegistry.h
+    src/core/AddonRegistry.cpp
+    src/core/AddonStoreModels.h
+    src/core/StremioAddonsProvider.h
+    src/core/StremioAddonsProvider.cpp
 
     src/ui/Theme.h
     src/ui/Icons.h
@@ -48,6 +57,20 @@ qt_add_executable(Tankoban3
     src/ui/CatalogRow.cpp
     src/ui/FeaturedHero.h
     src/ui/FeaturedHero.cpp
+    src/ui/DetailHero.h
+    src/ui/DetailHero.cpp
+    src/ui/EpisodeList.h
+    src/ui/EpisodeList.cpp
+    src/ui/DetailPage.h
+    src/ui/DetailPage.cpp
+    src/ui/ToggleSwitch.h
+    src/ui/ToggleSwitch.cpp
+    src/ui/AddonCard.h
+    src/ui/AddonCard.cpp
+    src/ui/BrowsePane.h
+    src/ui/BrowsePane.cpp
+    src/ui/AddonsPage.h
+    src/ui/AddonsPage.cpp
     src/ui/HomePage.h
     src/ui/HomePage.cpp
 )
