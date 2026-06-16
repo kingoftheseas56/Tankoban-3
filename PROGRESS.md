@@ -18,6 +18,16 @@
 - Known issues: fetchStreams end-to-end smoke deferred until a later wired milestone with a running stream addon
 - Next: M3 - StreamParser label parsing and ParsedStream population
 
+## Milestone 3: StreamParser
+- Status: Done
+- Built: StreamParser - parseStream pipeline, filename selection, PTT-equivalent extraction, resolution/source/codec/HDR/audio/language/metadata parsing
+- Files: src/core/StreamParser.h, src/core/StreamParser.cpp, CMakeLists.txt
+- Decisions: parser-cache-flags.ts deferred per no-debrid v1; cached and inLibrary remain empty. Qt accepted the TS/TC lookbehind translations, so no source regex deviation was required.
+- Smoke: build.bat + StreamParser probe both exit 0
+- Known issues: Harbor parity still needs review against parser/*.ts before merge safety is self-certified
+- Next: M4 - StreamScorer
+
 ## Token Ledger
 - M1 estimate: 9k tokens
 - M2 estimate: 16k tokens
+- M3 estimate: 31k tokens
