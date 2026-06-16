@@ -158,6 +158,78 @@ QPushButton#HeroDot {
     background: rgba(170,177,189,0.7);
 }
 QPushButton#HeroDot[active="true"] { background: #f3f1ea; }
+
+/* ── Detail page (Detail path — Harbor detail.tsx) ── */
+QWidget#DetailPage, QScrollArea#DetailScroll, QWidget#DetailPageBody { background: #121317; }
+QScrollArea#DetailScroll { border: none; }
+QScrollArea#DetailScroll > QWidget { background: #121317; }
+
+QLabel#DetailTitle {
+    color: #f3f1ea;
+    font-family: "Fraunces", "Iowan Old Style", "Georgia", serif;
+    font-size: 56px;
+    font-weight: 500;
+}
+QLabel#DetailPill {
+    background: rgba(18,19,23,0.85);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 13px;
+    padding: 4px 12px;
+    color: #aab1bd;
+    font-size: 13px;
+}
+QLabel#DetailSynopsis { color: #aab1bd; font-size: 16px; }
+
+QLabel#DetailSectionTitle {
+    color: #f3f1ea;
+    font-family: "Fraunces", "Georgia", serif;
+    font-size: 22px;
+    font-weight: 600;
+}
+QLabel#DetailEpCount { color: #8b909b; font-size: 13px; }
+
+QPushButton#SeasonTrigger {
+    background: rgba(18,19,23,0.85);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 18px;
+    padding: 7px 16px;
+    color: #f3f1ea;
+    font-size: 13px;
+    font-weight: 500;
+}
+QPushButton#SeasonTrigger:hover { border-color: #e8b923; background: #1a1d24; }
+
+QMenu#SeasonMenu {
+    background: #1a1d24;
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 14px;
+    padding: 6px;
+}
+QMenu#SeasonMenu::item {
+    padding: 9px 30px 9px 16px;
+    margin: 1px 0;
+    border-radius: 8px;
+    color: #aab1bd;
+    font-size: 13px;
+}
+QMenu#SeasonMenu::indicator { width: 0px; height: 0px; }
+QMenu#SeasonMenu::item:selected { background: rgba(255,255,255,0.07); color: #f3f1ea; }
+QMenu#SeasonMenu::item:checked  { color: #e8b923; }
+
+QWidget#EpisodeRow { background: transparent; border-radius: 14px; }
+QWidget#EpisodeRow:hover { background: rgba(255,255,255,0.04); }
+QLabel#EpThumb { background: #1a1d24; border-radius: 8px; }
+QLabel#EpTitle { color: #f3f1ea; font-size: 15px; font-weight: 600; }
+QLabel#EpMeta  { color: #8b909b; font-size: 12px; }
+
+QPushButton#DetailBack {
+    background: rgba(18,19,23,0.7);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 20px;
+    color: #f3f1ea;
+    font-size: 18px;
+}
+QPushButton#DetailBack:hover { background: rgba(45,51,63,0.95); }
 )qss");
 }
 

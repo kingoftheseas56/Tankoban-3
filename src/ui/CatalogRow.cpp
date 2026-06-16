@@ -92,6 +92,7 @@ void CatalogRow::setItems(const QVector<MetaItem>& items)
     const int cap = qMin(items.size(), 30);
     for (int i = 0; i < cap; ++i) {
         auto* card = new PosterCard(items.at(i), m_track);
+        connect(card, &PosterCard::activated, this, &CatalogRow::activated);
         m_trackLayout->insertWidget(m_trackLayout->count() - 1, card); // before stretch
         m_cards.push_back(card);
     }

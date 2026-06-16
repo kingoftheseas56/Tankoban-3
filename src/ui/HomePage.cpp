@@ -52,10 +52,10 @@ HomePage::HomePage(QWidget* parent)
 
     scroll->setWidget(page);
 
-    connect(m_hero, &FeaturedHero::openDetailRequested, this, [](const MetaItem& m) {
-        // TODO(Detail step): push the detail page. For now, prove the click path works.
-        qInfo() << "[hero] open detail:" << m.name << m.id;
-    });
+    // Hero Play/click and any poster click both ask MainWindow to open Detail.
+    connect(m_hero, &FeaturedHero::openDetailRequested, this, &HomePage::openDetailRequested);
+    connect(m_popularMovies, &CatalogRow::activated, this, &HomePage::openDetailRequested);
+    connect(m_popularSeries, &CatalogRow::activated, this, &HomePage::openDetailRequested);
 
     m_addons = new AddonClient(this);
     connect(m_addons, &AddonClient::catalogReady, this,

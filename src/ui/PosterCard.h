@@ -2,7 +2,8 @@
 //
 // A portrait poster + title. Loads its cover async, FULL-QUALITY (DPR-aware, smooth,
 // never upscaled) — but only when asked via ensureLoaded(), so the row can lazy-load
-// just the visible cards (Harbor's viewport trick) instead of all at once.
+// just the visible cards (Harbor's viewport trick) instead of all at once. Clicking
+// the card emits activated() with its full MetaItem (→ Detail).
 
 #pragma once
 
@@ -13,6 +14,7 @@
 
 class QLabel;
 class QEnterEvent;
+class QMouseEvent;
 
 namespace tankoban {
 
@@ -27,9 +29,13 @@ public:
     static constexpr int kPosterW = 150;
     static constexpr int kPosterH = 225; // 2:3
 
+signals:
+    void activated(const MetaItem& item);
+
 protected:
     void enterEvent(QEnterEvent* e) override;
     void leaveEvent(QEvent* e) override;
+    void mousePressEvent(QMouseEvent* e) override;
 
 private:
     void loadPoster(const QString& url);
@@ -37,6 +43,7 @@ private:
     QLabel* m_poster = nullptr;
     QLabel* m_title = nullptr;
     QString m_url;
+    MetaItem m_item;
     bool m_loadRequested = false;
 };
 

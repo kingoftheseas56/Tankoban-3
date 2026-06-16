@@ -1,10 +1,13 @@
-// Tankoban 3 — MainWindow (Step 2). See MainWindow.h.
+// Tankoban 3 — MainWindow (Step 2 + Detail). See MainWindow.h.
 
 #include "ui/MainWindow.h"
 
+#include "core/MetaDetail.h"
+#include "ui/DetailPage.h"
 #include "ui/HomePage.h"
 #include "ui/Sidebar.h"
 
+#include <QDebug>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QStackedWidget>
@@ -46,12 +49,31 @@ MainWindow::MainWindow(QWidget* parent)
 
     for (const auto& v : kViews) {
         const QString id = QString::fromLatin1(v.id);
-        QWidget* page = (id == QLatin1String("home"))
-            ? static_cast<QWidget*>(new HomePage(this))
-            : makePlaceholder(QString::fromLatin1(v.title));
+        QWidget* page = nullptr;
+        if (id == QLatin1String("home")) {
+            auto* home = new HomePage(this);
+            connect(home, &HomePage::openDetailRequested, this, &MainWindow::openDetail);
+            page = home;
+        } else {
+            page = makePlaceholder(QString::fromLatin1(v.title));
+        }
         const int idx = m_content->addWidget(page);
         m_pageIndex.insert(id, idx);
     }
+
+    // Detail is a pushed frame over the shell (sidebar stays visible, Harbor-style).
+    m_detailPage = new DetailPage(this);
+    m_detailIndex = m_content->addWidget(m_detailPage);
+    connect(m_detailPage, &DetailPage::backRequested, this,
+            [this]() { m_content->setCurrentIndex(m_returnIndex); });
+    connect(m_detailPage, &DetailPage::playRequested, this, [](const MetaItem& m) {
+        qInfo() << "[detail] Play -> Play Picker (next slice):" << m.name << m.id;
+    });
+    connect(m_detailPage, &DetailPage::episodeRequested, this,
+            [](const MetaItem& m, const EpisodeItem& ep) {
+                qInfo() << "[detail] Episode -> Play Picker (next slice):" << m.name
+                        << "S" << ep.season << "E" << ep.episode;
+            });
 
     connect(m_sidebar, &Sidebar::viewActivated, this, [this](const QString& id) {
         if (m_pageIndex.contains(id))
@@ -60,6 +82,15 @@ MainWindow::MainWindow(QWidget* parent)
     });
 
     m_content->setCurrentIndex(m_pageIndex.value(QStringLiteral("home")));
+}
+
+void MainWindow::openDetail(const MetaItem& meta)
+{
+    if (!m_detailPage)
+        return;
+    m_detailPage->load(meta);
+    m_returnIndex = m_content->currentIndex();
+    m_content->setCurrentIndex(m_detailIndex);
 }
 
 QWidget* MainWindow::makePlaceholder(const QString& title)

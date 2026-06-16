@@ -16,8 +16,11 @@ qt_add_executable(Tankoban3
     src/main.cpp
 
     src/core/MetaItem.h
+    src/core/MetaDetail.h
     src/core/AddonClient.h
     src/core/AddonClient.cpp
+    src/core/MetaService.h
+    src/core/MetaService.cpp
 
     src/ui/Theme.h
     src/ui/Icons.h
@@ -29,6 +32,14 @@ qt_add_executable(Tankoban3
     src/ui/PosterCard.cpp
     src/ui/CatalogRow.h
     src/ui/CatalogRow.cpp
+    src/ui/FeaturedHero.h
+    src/ui/FeaturedHero.cpp
+    src/ui/DetailHero.h
+    src/ui/DetailHero.cpp
+    src/ui/EpisodeList.h
+    src/ui/EpisodeList.cpp
+    src/ui/DetailPage.h
+    src/ui/DetailPage.cpp
     src/ui/HomePage.h
     src/ui/HomePage.cpp
 )
