@@ -19,7 +19,10 @@ In scope:
 
 Out of scope:
 
-- Live TV/IPTV, Playlists, Multiview, Calendar, award browsers, Browse by Award, award pages, award tiles, Critics Pick, Discovery Queue, Watch Together, multi-profile, parental controls, Trakt, AniList, Simkl, Discord/webhooks, theme presets, relay/account/cloud sync.
+- Live TV/IPTV, Playlists, Multiview, Calendar, award browsers, Browse by Award, award pages, award tiles, Critics Pick, Discovery Queue, Featured & Recommended, thumbs-based recommendation tuning, taste/affinity recommendations, Watch Together, multi-profile, parental controls, Trakt, AniList, Simkl, Discord/webhooks, theme presets, relay/account/cloud sync.
+- TMDB/API-key metadata paths, TMDB rows, TMDB key nudges, TMDB watch-provider links, and TMDB people search. Tankoban 3 should not require user-supplied metadata API keys for the core app.
+- Trailer overlay, ratings beyond basic IMDb/Cinemeta, frame grab/GIF recorder, AB loop/sleep timer, Cast/AirPlay/Chromecast, privacy blocklist, and in-app updates UI for v1.
+- Downloads/offline saving. Local files remain in scope, but downloads are deferred to a separate owner plan.
 - People search for v1. Search should cover movies, shows, anime, addons, and local library first.
 - Home row customization for v1. Rows are fixed and curated by the app.
 - Full addon app store/community marketplace. This is kept scope, not a trim candidate. Paste-manifest install is an additional path, not a replacement.
@@ -28,9 +31,13 @@ Out of scope:
 
 - Keep: Home hero carousel.
 - Keep: local files in Library, after the Stremio addon playback spine works.
+- Defer: downloads/offline saving to a separate owner plan.
 - Keep: advanced stream scoring. A picker that merely groups by resolution is not sufficient.
+- Keep: Anime as a first-class route using Jikan/Kitsu and Stremio anime addon ids, without TMDB/AniList/Simkl dependencies.
 - Cut: Browse by Award and all award-specific pages/tiles/rails.
-- Cut: Critics Pick, Discovery Queue, people search, and Home row customization for v1.
+- Cut: Featured & Recommended, recommendation/taste tuning, Critics Pick, Discovery Queue, people search, and Home row customization for v1.
+- Cut: TMDB integration and TMDB-dependent UI. Prefer Stremio/Cinemeta/addon metadata and optional non-key providers only if explicitly accepted later.
+- Defer/Cut from v1: trailer overlay, ratings beyond basic IMDb/Cinemeta, frame grab/GIF recorder, AB loop/sleep timer, Cast/AirPlay/Chromecast, privacy blocklist, and in-app updates UI.
 - Keep: Addons app store/community marketplace with Discover, Browse, Installed, categories, addon detail, and manifest paste install.
 - Preserve: Harbor's layout language, navigation behavior, dark visual system, and Stremio-like playback flow.
 - Trim: editorial/external-account/social features that do not serve the core video playback path.
@@ -834,7 +841,7 @@ Route mapping:
 - Movies: Cinemeta movie top and genre rows first.
 - Shows: Cinemeta series top and genre rows first.
 - Anime: addon rows where type/name indicate anime, plus static anime catalogs only if Stremio-compatible sources exist.
-- Discover: lean mixed catalog rows only. Do not include Browse by Award, award tiles, Critics Pick, or Discovery Queue.
+- Discover: lean mixed catalog rows only. Do not include Browse by Award, award tiles, Featured & Recommended, recommendation/taste tuning, Critics Pick, or Discovery Queue.
 
 Smoke:
 
@@ -1056,6 +1063,12 @@ The app should remain useful at every step. Avoid building a large invisible bac
 ## Next Implementation Slices
 
 These are the first six implementation slices after this roadmap. They are designed to preserve a faithful, least-compromise Qt recreation of Harbor while keeping every step buildable and smoke-able. Implement them in order. Do not combine slices unless the earlier slice is already merged and green.
+
+Expansion docs:
+
+- `ROADMAP_BATCH_1_ADDON_STORE.md`: full Harbor-faithful Addons app-store conversion for Qt, including marketplace providers, install/update/remove, installed management, ordering, backups, adult gate, and deep-link intake.
+- `ROADMAP_BATCH_3_ANIME_PROVIDER_STACK.md`: expanded Anime route/provider conversion for Jikan rows, Kitsu detail/episodes, Anime Kitsu/Stremio id bridging, anime search, adult filtering, and picker handoff without TMDB/AniList/Simkl/awards/recommendations.
+- `ROADMAP_BATCH_9_EXTERNAL_SUBTITLES.md`: expanded subtitle conversion for embedded tracks, Stremio subtitle addons, OpenSubtitles V3, Wyzie, local subtitle import, ranking/dedupe, and player handoff.
 
 ### Slice 1: AppContext, Typed Models, and CatalogService Wrapper
 
