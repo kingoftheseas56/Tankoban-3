@@ -9,6 +9,7 @@
 
 class MpvController;
 class MpvGlWidget;
+class SeekBar;
 class QTimer;
 
 class PlayerView : public QWidget {
@@ -30,6 +31,7 @@ protected:
 private:
     MpvController* m_controller = nullptr;
     MpvGlWidget* m_video = nullptr;
+    SeekBar* m_seek = nullptr;        // TEMP smoke (Plan 2 T1); T3 moves it into TransportBar
     QTimer* m_clickTimer = nullptr;
     bool m_swallowRelease = false;
     bool m_fakeFs = false;        // borderless-fullscreen via geometry (no OS transition = no blink)

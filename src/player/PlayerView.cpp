@@ -1,5 +1,6 @@
 #include "player/PlayerView.h"
 #include "player/HotkeyDispatcher.h"
+#include "chrome/SeekBar.h"
 #include "engine/MpvController.h"
 #include "engine/MpvGlWidget.h"
 #include "engine/PlaybackClock.h"
@@ -30,6 +31,15 @@ PlayerView::PlayerView(QWidget* parent) : QWidget(parent)
         PlaybackClock::instance().onSnapshot(
             s.positionSec, s.bufferedSec, s.status == PlayerSnapshot::Playing, s.rate);
     });
+
+    // TEMP (Plan 2 T1 smoke): drop the SeekBar at the bottom; T3 moves it into TransportBar.
+    // Parent to the GL widget so Qt composites it ON TOP of the video (a sibling gets
+    // painted over between the chrome's own repaints).
+    m_seek = new SeekBar(m_video);
+    m_seek->raise();
+    connect(m_seek, &SeekBar::seekRequested, m_controller, &MpvController::seek);
+    connect(m_controller, &MpvController::snapshotChanged, this,
+            [this](const PlayerSnapshot& s) { m_seek->setDuration(s.durationSec); });
 
     qApp->installEventFilter(new HotkeyDispatcher(this, this));
 }
@@ -66,6 +76,7 @@ void PlayerView::toggleFullscreen()
 void PlayerView::resizeEvent(QResizeEvent* e)
 {
     if (m_video) m_video->setGeometry(rect());
+    if (m_seek)  m_seek->setGeometry(40, height() - 70, width() - 80, 48);
     QWidget::resizeEvent(e);
 }
 
