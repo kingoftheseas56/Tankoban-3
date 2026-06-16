@@ -9,6 +9,7 @@
 #include "player/PlayerView.h"
 
 #include <QApplication>
+#include <QScreen>
 
 int main(int argc, char** argv)
 {
@@ -24,8 +25,10 @@ int main(int argc, char** argv)
             src = QStringLiteral("https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4");
         auto* view = new PlayerView();
         view->setWindowTitle(QStringLiteral("Tankoban 3 — player"));
-        view->resize(1280, 720);       // normal-state size (un-maximize target)
-        view->showMaximized();         // start full-fit
+        view->setWindowFlag(Qt::FramelessWindowHint);   // no OS chrome -> no fullscreen flash
+        view->resize(1280, 720);
+        view->move(QGuiApplication::primaryScreen()->availableGeometry().center() - QPoint(640, 360));
+        view->show();
         view->play(src);
         return app.exec();
     }

@@ -32,4 +32,6 @@ private:
     MpvGlWidget* m_video = nullptr;
     QTimer* m_clickTimer = nullptr;
     bool m_swallowRelease = false;
+    bool m_fakeFs = false;        // borderless-fullscreen via geometry (no OS transition = no blink)
+    QRect m_savedGeom;            // windowed geometry to restore on exit
 };

@@ -7,6 +7,7 @@
 #include <QApplication>
 #include <QMouseEvent>
 #include <QResizeEvent>
+#include <QScreen>
 #include <QTimer>
 
 PlayerView::PlayerView(QWidget* parent) : QWidget(parent)
@@ -44,10 +45,21 @@ void PlayerView::playPauseToggle()
 
 void PlayerView::toggleFullscreen()
 {
+    // Borderless fullscreen via GEOMETRY (window is frameless) — never
+    // showFullScreen(). This sidesteps Windows' exclusive-fullscreen transition
+    // (the title-bar restore flash + multi-resize settle + QOpenGLWidget flicker
+    // we've fought since Tankoban 2's applyFramelessWin32Style fix).
     QWidget* w = window();
-    // Toggle ONLY the fullscreen bit -> the underlying maximized/normal state is
-    // preserved, so exiting fullscreen returns to exactly where it was.
-    w->setWindowState(w->windowState() ^ Qt::WindowFullScreen);
+    if (m_fakeFs) {
+        w->setGeometry(m_savedGeom);
+        m_fakeFs = false;
+    } else {
+        m_savedGeom = w->geometry();
+        QRect g = w->screen()->geometry();
+        g.setHeight(g.height() + 1);   // +1px dodges Windows' exclusive-fullscreen path (no flicker)
+        w->setGeometry(g);
+        m_fakeFs = true;
+    }
     if (m_video) m_video->update();
 }
 
