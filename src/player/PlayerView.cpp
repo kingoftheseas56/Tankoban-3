@@ -1,6 +1,6 @@
 #include "player/PlayerView.h"
 #include "player/HotkeyDispatcher.h"
-#include "chrome/SeekBar.h"
+#include "chrome/TransportBar.h"
 #include "engine/MpvController.h"
 #include "engine/MpvGlWidget.h"
 #include "engine/PlaybackClock.h"
@@ -10,6 +10,46 @@
 #include <QResizeEvent>
 #include <QScreen>
 #include <QTimer>
+
+namespace {
+
+QRect clampToAvailable(const QRect& wanted, const QRect& available)
+{
+    if (!wanted.isValid() || !available.isValid()) return available;
+
+    const int width = std::min(wanted.width(), available.width());
+    const int height = std::min(wanted.height(), available.height());
+    int x = wanted.x();
+    int y = wanted.y();
+
+    if (x < available.left()) x = available.left();
+    if (y < available.top()) y = available.top();
+    if (x + width > available.right() + 1) x = available.right() + 1 - width;
+    if (y + height > available.bottom() + 1) y = available.bottom() + 1 - height;
+
+    return QRect(x, y, width, height);
+}
+
+QRect fitWindowedRect(const QRect& wanted, const QRect& available)
+{
+    if (!wanted.isValid() || !available.isValid()) return available;
+
+    if (wanted.width() <= available.width() && wanted.height() <= available.height())
+        return clampToAvailable(wanted, available);
+
+    QRect inset = available.adjusted(48, 32, -48, -48);
+    if (!inset.isValid()) inset = available;
+
+    QSize size = wanted.size();
+    size.scale(inset.size(), Qt::KeepAspectRatio);
+    if (size.width() <= 0 || size.height() <= 0) return available;
+
+    QRect fitted(QPoint(0, 0), size);
+    fitted.moveCenter(inset.center());
+    return fitted;
+}
+
+} // namespace
 
 PlayerView::PlayerView(QWidget* parent) : QWidget(parent)
 {
@@ -27,24 +67,37 @@ PlayerView::PlayerView(QWidget* parent) : QWidget(parent)
     m_clickTimer->setInterval(QApplication::doubleClickInterval());
     connect(m_clickTimer, &QTimer::timeout, this, &PlayerView::playPauseToggle);
 
-    connect(m_controller, &MpvController::snapshotChanged, this, [](const PlayerSnapshot& s) {
+    connect(m_controller, &MpvController::snapshotChanged, this, [this](const PlayerSnapshot& s) {
         PlaybackClock::instance().onSnapshot(
             s.positionSec, s.bufferedSec, s.status == PlayerSnapshot::Playing, s.rate);
+        if (m_chrome) m_chrome->setSnapshot(s);
     });
 
-    // TEMP (Plan 2 T1 smoke): drop the SeekBar at the bottom; T3 moves it into TransportBar.
-    // Parent to the GL widget so Qt composites it ON TOP of the video (a sibling gets
-    // painted over between the chrome's own repaints).
-    m_seek = new SeekBar(m_video);
-    m_seek->raise();
-    connect(m_seek, &SeekBar::seekRequested, m_controller, &MpvController::seek);
-    connect(m_controller, &MpvController::snapshotChanged, this,
-            [this](const PlayerSnapshot& s) { m_seek->setDuration(s.durationSec); });
+    // Parent to the GL widget so Qt composites the chrome on top of the video.
+    m_chrome = new TransportBar(m_video);
+    m_chrome->setGeometry(m_video->rect());
+    m_chrome->raise();
+    m_chrome->installEventFilter(this);
+    connect(m_chrome, &TransportBar::backRequested, this, [this] { window()->close(); });
+    connect(m_chrome, &TransportBar::playPauseRequested, this, &PlayerView::playPauseToggle);
+    connect(m_chrome, &TransportBar::seekRequested, m_controller, &MpvController::seek);
+    connect(m_chrome, &TransportBar::seekStepRequested, this, [this](double delta) {
+        m_controller->seek(std::max(0.0, PlaybackClock::instance().position() + delta));
+    });
+    connect(m_chrome, &TransportBar::volumeRequested, m_controller, &MpvController::setVolume);
+    connect(m_chrome, &TransportBar::muteRequested, m_controller, &MpvController::setMuted);
+    connect(m_chrome, &TransportBar::audioTrackRequested, m_controller, &MpvController::setAudioTrack);
+    connect(m_chrome, &TransportBar::audioDelayRequested, m_controller, &MpvController::setAudioDelay);
+    connect(m_chrome, &TransportBar::fullscreenRequested, this, &PlayerView::toggleFullscreen);
 
     qApp->installEventFilter(new HotkeyDispatcher(this, this));
 }
 
 void PlayerView::play(const QString& url, double startSec) { m_controller->load(url, startSec); }
+void PlayerView::setTitleInfo(const QString& title, const QString& subtitle)
+{
+    if (m_chrome) m_chrome->setTitleInfo(title, subtitle, false);
+}
 PlayerSnapshot PlayerView::snap() const { return m_controller->snapshot(); }
 
 void PlayerView::playPauseToggle()
@@ -60,29 +113,33 @@ void PlayerView::toggleFullscreen()
     // (the title-bar restore flash + multi-resize settle + QOpenGLWidget flicker
     // we've fought since Tankoban 2's applyFramelessWin32Style fix).
     QWidget* w = window();
+    QScreen* screen = w->screen();
+    const QRect available = screen ? screen->availableGeometry() : w->geometry();
     if (m_fakeFs) {
-        w->setGeometry(m_savedGeom);
+        w->setGeometry(fitWindowedRect(m_savedGeom, available));
         m_fakeFs = false;
     } else {
-        m_savedGeom = w->geometry();
-        QRect g = w->screen()->geometry();
-        g.setHeight(g.height() + 1);   // +1px dodges Windows' exclusive-fullscreen path (no flicker)
-        w->setGeometry(g);
+        m_savedGeom = fitWindowedRect(w->geometry(), available);
+        // Use the working area, not the raw screen bounds, so the Windows taskbar
+        // never obscures the bottom transport chrome in borderless mode.
+        w->setGeometry(available);
         m_fakeFs = true;
     }
+    if (m_chrome) m_chrome->setFullscreen(m_fakeFs);
     if (m_video) m_video->update();
 }
 
 void PlayerView::resizeEvent(QResizeEvent* e)
 {
     if (m_video) m_video->setGeometry(rect());
-    if (m_seek)  m_seek->setGeometry(40, height() - 70, width() - 80, 48);
+    if (m_chrome && m_video) m_chrome->setGeometry(m_video->rect());
     QWidget::resizeEvent(e);
 }
 
 bool PlayerView::eventFilter(QObject* obj, QEvent* ev)
 {
-    if (obj == m_video) {
+    if (obj == m_video || obj == m_chrome) {
+        if (obj == m_chrome && ev->type() == QEvent::MouseMove) m_chrome->wakeChrome();
         if (ev->type() == QEvent::MouseButtonRelease) {
             auto* me = static_cast<QMouseEvent*>(ev);
             if (me->button() == Qt::LeftButton) {
