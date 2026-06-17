@@ -21,6 +21,15 @@ public:
     MpvController* controller() const { return m_controller; }
     PlayerSnapshot snap() const;
 
+    // Back / Escape are host-driven. PlayerView no longer closes its top-level
+    // window itself — embedded in MainWindow that would close the whole app.
+    // It emits backRequested() and lets the host (standalone demo or the in-app
+    // VideoPlayerPage) decide what "back" means.
+    void escapePressed();   // Esc: step out of fake-fullscreen first, else request back
+
+signals:
+    void backRequested();
+
 public slots:
     void playPauseToggle();
     void toggleFullscreen();

@@ -67,6 +67,9 @@ int main(int argc, char** argv)
         view->setWindowFlag(Qt::FramelessWindowHint);   // no OS chrome -> no fullscreen flash
         view->setGeometry(demoWindowedRect(QGuiApplication::primaryScreen()->availableGeometry()));
         view->setTitleInfo(demoTitleFromSource(src));
+        // PlayerView no longer self-closes; in the standalone demo, Back/Esc closes
+        // this (top-level) window, which quits the app as before.
+        QObject::connect(view, &PlayerView::backRequested, view, &QWidget::close);
         view->show();
         view->play(src);
         // Demo/test affordance: TANKOBAN3_PLAYER_DEMO_SUB=<sid> selects a subtitle

@@ -84,6 +84,8 @@ qt_add_executable(Tankoban3
     src/ui/StremioRow.cpp
     src/ui/StreamList.h
     src/ui/StreamList.cpp
+    src/ui/VideoPlayerPage.h
+    src/ui/VideoPlayerPage.cpp
     src/ui/PosterCard.h
     src/ui/PosterCard.cpp
     src/ui/CatalogRow.h

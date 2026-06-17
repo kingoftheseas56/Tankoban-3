@@ -56,6 +56,52 @@
 - Known issues: backdrop-through-scroll verified with a local bright test image (no striping); a real-title Hemanth eye-smoke is still the gate before M7+. PrimaryCard / TierStrip / SourceDrawer / empty-state ladder / modals / autoplay and real StreamService wiring remain for M7-M9. streamSelected is emitted but intentionally not connected to a resolver/player (M9).
 - Next: M7 - TierStrip / PrimaryCard / SourceDrawer (per next prompt)
 
+## Playback Spine: In-app Player Seam + Frameless Shell
+- Status: Done (Hemanth-smoked 2026-06-17)
+- Built: Wired the Play Picker -> in-app player seam and made the app window frameless
+  (Harbor-faithful, no OS title bar). Direct-link playback only.
+- Files: src/ui/MainWindow.h/.cpp, src/ui/VideoPlayerPage.h/.cpp (new),
+  src/player/PlayerView.h/.cpp, src/player/HotkeyDispatcher.cpp, src/main.cpp, CMakeLists.txt
+- Decisions:
+  - MainWindow owns QNetworkAccessManager + StreamService. openPlayPicker -> setLoading +
+    fetchStreams; streamsPartial/Ready -> buildPicker (StreamParser -> StreamScorer
+    computeCorpusStats/scoreStream/rankAndPick) -> PlayPickerPage::setPicker; streamsFailed ->
+    "No stream addons configured".
+  - PlayPickerPage::streamSelected -> MainWindow::openDirectPlayer: guards url (non-empty,
+    != "#"); lazy-creates VideoPlayerPage as a content-stack PAGE (not an overlay); hides
+    sidebar + top bar + the picker overlay; switches the stack to the player BEFORE play()
+    so the GL surface is exposed when the first mpv frame lands; plays. Back -> closePlayer:
+    stop, restore chrome, re-show the picker.
+  - VideoPlayerPage (new) wraps the player track's PlayerView + a tiny PlayerRequest
+    {url,title,subtitle,startSec}.
+  - PlayerView/HotkeyDispatcher back-safety: Back button + Esc now emit
+    PlayerView::backRequested() instead of window()->close() (embedding otherwise closed the
+    whole app); Esc exits fake-fullscreen first. main.cpp standalone demo connects
+    backRequested -> close to preserve old behavior. (Touches the player track; Agent 4's
+    "ask, don't grab" fullscreen refactor builds on top.)
+  - Frameless shell (Harbor topbar.tsx + tauri.conf decorations:false): FramelessWindowHint +
+    WS_THICKFRAME re-added (Tankoban 2 technique) for native snap/resize/drag/shadow;
+    WM_NCCALCSIZE=0 (full client); WM_NCHITTEST -> HTCAPTION on empty top-bar via
+    QCursor::pos() (DPI-correct; raw lParam mismatched on scaled displays and killed the
+    control-button clicks); custom min/max/close cluster (hand-painted glyphs); DWM
+    immersive-dark frame + border-color none.
+  - Maximize geometry: WM_GETMINMAXINFO constrains the maximized window to the monitor WORK
+    AREA (not full monitor), so the real taskbar stays visible and the client is full-bleed
+    with no white rim. DPI-agnostic (no GetSystemMetrics frame math, which mismatched on
+    scaled displays and had left an ~11px white top/left rim + a white strip over the taskbar).
+  - Render-freeze root cause: MpvGlWidget's redraw-pending coalescing flag sticks true if
+    update() doesn't reach paintGL while the GL surface is unexposed (as a raised overlay).
+    Hosting the player as a content-stack page (deterministic expose) fixes it.
+- Smoke: build.bat exit 0 (clean, no scaffolding). Hemanth eye-smoke: video plays in-app
+  (motion+audio), fills window, Back returns to picker, no white frame, taskbar visible.
+  White-frame removal verified via pixel-sampled screenshots (all edges dark, #fff gone).
+- Deferred: maximize/restore button (frameless window-state tracking), one-time first-open
+  warm-up flash, Harbor transparent-floating top bar -> shell-polish pass. Real fullscreen
+  seam (player asks, shell drives window) -> Agent 4. No real direct-link stream addon yet,
+  so the committed app shows "No stream addons configured" on Play until that milestone.
+- Next: real direct-link source addon (self-hosted direct-HTTP Stremio addon) so real titles
+  play; then torrents/debrid resolver; M7 TierStrip/PrimaryCard/SourceDrawer picker polish.
+
 ## Token Ledger
 - M1 estimate: 9k tokens
 - M2 estimate: 16k tokens

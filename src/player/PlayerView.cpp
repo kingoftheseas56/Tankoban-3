@@ -78,7 +78,7 @@ PlayerView::PlayerView(QWidget* parent) : QWidget(parent)
     m_chrome->setGeometry(m_video->rect());
     m_chrome->raise();
     m_chrome->installEventFilter(this);
-    connect(m_chrome, &TransportBar::backRequested, this, [this] { window()->close(); });
+    connect(m_chrome, &TransportBar::backRequested, this, [this] { emit backRequested(); });
     connect(m_chrome, &TransportBar::playPauseRequested, this, &PlayerView::playPauseToggle);
     connect(m_chrome, &TransportBar::seekRequested, m_controller, &MpvController::seek);
     connect(m_chrome, &TransportBar::seekStepRequested, this, [this](double delta) {
@@ -130,6 +130,15 @@ void PlayerView::toggleFullscreen()
     }
     if (m_chrome) m_chrome->setFullscreen(m_fakeFs);
     if (m_video) m_video->update();
+}
+
+void PlayerView::escapePressed()
+{
+    // Mirrors the chrome Back button, but steps out of borderless fullscreen
+    // first if we're in it (conventional player UX). Never closes the window
+    // directly — the host owns lifecycle via backRequested().
+    if (m_fakeFs) toggleFullscreen();
+    else emit backRequested();
 }
 
 void PlayerView::resizeEvent(QResizeEvent* e)

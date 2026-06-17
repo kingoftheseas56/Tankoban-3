@@ -45,7 +45,7 @@ bool HotkeyDispatcher::eventFilter(QObject* /*obj*/, QEvent* ev)
                 m_holdTimer->start(350);
             }
             return true;
-        case Qt::Key_Escape:       m_view->window()->close();             return true;
+        case Qt::Key_Escape:       m_view->escapePressed();               return true;
         case Qt::Key_F:            m_view->toggleFullscreen();            return true;
         case Qt::Key_Left:         seekStep(-10);                         return true;
         case Qt::Key_Right:        seekStep(10);                          return true;
