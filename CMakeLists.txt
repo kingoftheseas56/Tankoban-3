@@ -78,6 +78,10 @@ qt_add_executable(Tankoban3
     src/ui/PickerHeader.cpp
     src/ui/PlayPickerPage.h
     src/ui/PlayPickerPage.cpp
+    src/ui/StremioRow.h
+    src/ui/StremioRow.cpp
+    src/ui/StreamList.h
+    src/ui/StreamList.cpp
     src/ui/PosterCard.h
     src/ui/PosterCard.cpp
     src/ui/CatalogRow.h

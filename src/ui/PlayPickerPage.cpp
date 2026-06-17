@@ -6,6 +6,7 @@
 #include "ui/BackdropLayer.h"
 #include "ui/Icons.h"
 #include "ui/PickerHeader.h"
+#include "ui/StreamList.h"
 
 #include <QFrame>
 #include <QHBoxLayout>
@@ -13,6 +14,7 @@
 #include <QPainter>
 #include <QPushButton>
 #include <QResizeEvent>
+#include <QScrollArea>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QtMath>
@@ -117,7 +119,6 @@ QLabel#LoadingText {
     auto* body = new QWidget(this);
     body->setAttribute(Qt::WA_TranslucentBackground);
     body->setAutoFillBackground(false);
-    root->addWidget(body);
 
     auto* outer = new QVBoxLayout(body);
     outer->setContentsMargins(48, 128, 48, 128);
@@ -134,19 +135,26 @@ QLabel#LoadingText {
     m_header = new PickerHeader(inner);
     col->addWidget(m_header);
 
-    auto* loadingPanel = new QFrame(inner);
-    loadingPanel->setObjectName(QStringLiteral("LoadingPanel"));
-    loadingPanel->setMinimumHeight(96);
-    auto* loadingLayout = new QHBoxLayout(loadingPanel);
+    m_loadingPanel = new QFrame(inner);
+    m_loadingPanel->setObjectName(QStringLiteral("LoadingPanel"));
+    m_loadingPanel->setMinimumHeight(96);
+    auto* loadingLayout = new QHBoxLayout(m_loadingPanel);
     loadingLayout->setContentsMargins(24, 22, 24, 22);
     loadingLayout->setSpacing(14);
-    m_spinner = new LoadingSpinner(loadingPanel);
+    m_spinner = new LoadingSpinner(m_loadingPanel);
     loadingLayout->addWidget(m_spinner, 0, Qt::AlignVCenter);
-    m_loading = new QLabel(QStringLiteral("Loading streams..."), loadingPanel);
+    m_loading = new QLabel(QStringLiteral("Loading streams..."), m_loadingPanel);
     m_loading->setObjectName(QStringLiteral("LoadingText"));
     loadingLayout->addWidget(m_loading, 0, Qt::AlignVCenter);
     loadingLayout->addStretch();
-    col->addWidget(loadingPanel);
+    col->addWidget(m_loadingPanel);
+
+    // M6 source list — hidden until setPicker(...) feeds ranked streams (M9 wires real data).
+    m_streamList = new StreamList(inner);
+    m_streamList->hide();
+    connect(m_streamList, &StreamList::streamActivated, this, &PlayPickerPage::streamSelected);
+    col->addWidget(m_streamList);
+
     col->addStretch();
 
     auto* centeredRow = new QWidget(body);
@@ -159,8 +167,24 @@ QLabel#LoadingText {
     centeredLayout->addStretch();
     outer->addWidget(centeredRow);
     outer->addStretch();
-    body->raise();
-    m_backdrop->stackUnder(body);
+
+    // Harbor's picker root is `overflow-y-auto`: header + content scroll over a FIXED
+    // backdrop. The backdrop stays a lowered sibling (NOT inside the viewport); the
+    // viewport is WA_TranslucentBackground so it shows through AND recomposites when the
+    // backdrop's async image lands (the M5 striping was a missing-translucent viewport
+    // that never repainted on backdrop update).
+    m_scroll = new QScrollArea(this);
+    m_scroll->setObjectName(QStringLiteral("PlayPickerScroll"));
+    m_scroll->setFrameShape(QFrame::NoFrame);
+    m_scroll->setWidgetResizable(true);
+    m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_scroll->setAttribute(Qt::WA_TranslucentBackground, true);
+    m_scroll->viewport()->setAutoFillBackground(false);
+    m_scroll->viewport()->setAttribute(Qt::WA_TranslucentBackground, true);
+    m_scroll->setWidget(body);
+    root->addWidget(m_scroll);
+
+    m_backdrop->lower();
 
     m_back = new QPushButton(this);
     m_back->setObjectName(QStringLiteral("PlayPickerBack"));
@@ -193,6 +217,13 @@ void PlayPickerPage::open(const MetaDetail& meta, std::optional<EpisodeItem> epi
         m_header->setMeta(meta.name, meta.releaseInfo, meta.genres);
     }
 
+    // M6: every open starts on the M5 loading placeholder; M9 calls setPicker(...) with data.
+    m_loadingPanel->show();
+    if (m_streamList) {
+        m_streamList->clearStreams();
+        m_streamList->hide();
+    }
+
     setGeometry(parentWidget() ? parentWidget()->rect() : QRect(QPoint(0, 0), size()));
     show();
     raise();
@@ -200,6 +231,30 @@ void PlayPickerPage::open(const MetaDetail& meta, std::optional<EpisodeItem> epi
 
     if (m_meta && !meta.id.isEmpty() && !meta.type.isEmpty())
         m_meta->fetchDetail(meta.type, meta.id);
+}
+
+void PlayPickerPage::setPicker(const RankedPicker& picker, bool pipelineDone, int loadingAddonCount)
+{
+    if (m_loadingPanel)
+        m_loadingPanel->hide();
+    StreamList::Options opts;
+    opts.pipelineDone = pipelineDone;
+    opts.loadingAddonCount = loadingAddonCount;
+    opts.preserveOrder = true;
+    m_streamList->setStreams(picker.all, opts);
+    m_streamList->show();
+}
+
+void PlayPickerPage::setLoading(const QString& message)
+{
+    if (m_loading)
+        m_loading->setText(message);
+    if (m_streamList) {
+        m_streamList->clearStreams();
+        m_streamList->hide();
+    }
+    if (m_loadingPanel)
+        m_loadingPanel->show();
 }
 
 void PlayPickerPage::resizeEvent(QResizeEvent* event)

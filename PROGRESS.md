@@ -47,9 +47,19 @@
 - Known issues: typography patch awaits cross-engine review before M6; a proper scrollable shell + source list + Harbor stream-control parity remain for M6+ when Torrentio/stream rows are wired.
 - Next: M6 - Stream list / Stremio rows (solve the scrollable shell against real content there)
 
+## Milestone 6: Play Picker Stream List + Stremio Rows
+- Status: Done
+- Built: StremioRow (addon tile, headline/description, FormatBadge-equivalent text chips, copy-link, circular play button, unsupported/failed states) + StreamList (addon/source filter popup, quality-tier pills, ranked rows, pending-addons pill) + PlayPickerPage::setPicker/setLoading + streamSelected signal. Added the scrollable picker shell (Harbor overflow-y-auto) and fixed the M5 backdrop-striping root cause in the same change.
+- Files: src/ui/StremioRow.h, src/ui/StremioRow.cpp, src/ui/StreamList.h, src/ui/StreamList.cpp, src/ui/PlayPickerPage.h, src/ui/PlayPickerPage.cpp, CMakeLists.txt
+- Decisions: badge chips translate Harbor format-badge.tsx streamBadges()/qualityConfidence() exactly (text chips, NOT the image pack) — source-capture override, no-label/unknown confidence, then release/codec/HDR/audio. One additive deviation: SCR renders an "SCR" chip although Harbor's sourceBadge() omits SCR (it tiers SCR as ROUGH in the scorer; the chip is honest and prompt-specified). StreamList preserves StreamScorer ranking order (no re-score/re-sort); addon-filter key = addonUrl||addonId; quality groups 4K/1080p/720p/SD shown only when >=2 groups. Direct-playable = url non-empty && url != "#"; unsupported rows (hash-only / external / yt / nzb / "#") are visible but muted with a reason and emit nothing. No network addon logos in v1 (initial-letter tile). Scroll: the backdrop stays a lowered SIBLING (not inside the viewport) and the scroll viewport is WA_TranslucentBackground, so it shows the backdrop AND recomposites when the backdrop's async image lands — that missing-translucent-viewport was the M5 first-open striping cause, now fixed. Committed normal flow still shows the M5 loading placeholder; setPicker is the M9 entry point.
+- Smoke: build.bat exit 0. Temporary fixture probe (3 ScoredStreams, deleted before commit, clean rebuild exit 0) verified: addon filter, quality pills + counts (All 3 / 4K 2 / 1080p 1), ranked rows at full height, rich badge chips (4K REMUX HEVC DV ATMOS), CAM red danger chip + muted/disabled play + "Torrent source — resolver later", gold play on direct rows, copy buttons, pending-addons pill, and a bright backdrop rendering full-frame through the scroll with NO striping/banding.
+- Known issues: backdrop-through-scroll verified with a local bright test image (no striping); a real-title Hemanth eye-smoke is still the gate before M7+. PrimaryCard / TierStrip / SourceDrawer / empty-state ladder / modals / autoplay and real StreamService wiring remain for M7-M9. streamSelected is emitted but intentionally not connected to a resolver/player (M9).
+- Next: M7 - TierStrip / PrimaryCard / SourceDrawer (per next prompt)
+
 ## Token Ledger
 - M1 estimate: 9k tokens
 - M2 estimate: 16k tokens
 - M3 estimate: 31k tokens
 - M4 estimate: 24k tokens
 - M5 estimate: 23k tokens
+- M6 estimate: 42k tokens
