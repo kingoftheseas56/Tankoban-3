@@ -43,7 +43,6 @@ protected:
 
 private:
     void positionBackButton();
-    void scheduleBackdropRecomposite();
 
     QString m_currentId;
     std::optional<EpisodeItem> m_currentEpisode;
