@@ -4,7 +4,7 @@
 - Status: Done
 - Built: StreamModels.h - Stream -> ParsedStream -> ScoredStream three-tier types
 - Files: src/core/StreamModels.h
-- Decisions: none
+- Decisions: C++ uses explicit sentinels for Harbor's nullable/undefined TS fields: Resolution::None, HdrFormat::None, Codec/AudioCodec/Source::Unknown, Container::Unknown, empty QString for nullable strings, size=0, seeders=-1, year/yearStart/yearEnd=0, season/episode=0, discIndex=-1, and std::optional primary. Safe ONLY because StreamParser/StreamScorer treat these as unknown/no-op, never as meaningful values.
 - Smoke: build.bat + compile-probe both exit 0
 - Known issues: none
 - Next: M2 - StreamService::buildStreamIds + fetchStreams skeleton
@@ -13,7 +13,7 @@
 - Status: Done
 - Built: StreamService - buildStreamIds + fetchStreams raw addon stream service
 - Files: src/core/StreamService.h, src/core/StreamService.cpp, CMakeLists.txt
-- Decisions: v1 adapter keeps anime fallback on current EpisodeItem fields only; 8s flat timeout; addonRanked remains false
+- Decisions: V1 adapter uses only current MetaDetail/EpisodeItem fields, so Harbor defaultVideoId, mapped IMDb episode fields, per-episode videoId, and Kitsu stream id are deferred; anime fallback uses current season/episode fields. Harbor's slow-addon timeout markers are preserved for Torrentio-class addons; addonRanked remains false until Harbor addon-detect is ported.
 - Smoke: build.bat + buildStreamIds probe both exit 0
 - Known issues: fetchStreams end-to-end smoke deferred until a later wired milestone with a running stream addon
 - Next: M3 - StreamParser label parsing and ParsedStream population

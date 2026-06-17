@@ -108,12 +108,17 @@ bool idMatchesPrefixes(const QString& id, const QStringList& prefixes)
 
 bool addonAcceptsId(const InstalledAddon& addon, const QString& type, const QString& id)
 {
+    bool sawSpecificStreamResource = false;
     for (const AddonResource& resource : addon.manifest.resources) {
         if (resource.name != QStringLiteral("stream") || resource.wildcard)
             continue;
+        sawSpecificStreamResource = true;
         if (resource.types.contains(type) && idMatchesPrefixes(id, resource.idPrefixes))
             return true;
     }
+
+    if (sawSpecificStreamResource)
+        return false;
 
     for (const AddonResource& resource : addon.manifest.resources) {
         if (resource.name != QStringLiteral("stream") || !resource.wildcard)
@@ -124,6 +129,33 @@ bool addonAcceptsId(const InstalledAddon& addon, const QString& type, const QStr
     }
 
     return false;
+}
+
+int timeoutForAddon(const InstalledAddon& addon)
+{
+    const QString haystack = QStringLiteral("%1\n%2\n%3\n%4")
+                                 .arg(addon.manifest.name,
+                                      addon.manifest.id,
+                                      addon.manifestUrl,
+                                      addon.baseUrl)
+                                 .toLower();
+
+    static const QStringList slowAddons = {
+        QStringLiteral("mediafusion"),
+        QStringLiteral("comet"),
+        QStringLiteral("torrentio"),
+        QStringLiteral("knightcrawler"),
+        QStringLiteral("aiostreams"),
+        QStringLiteral("jackettio"),
+        QStringLiteral("torbox"),
+    };
+
+    for (const QString& marker : slowAddons) {
+        if (haystack.contains(marker))
+            return 22000;
+    }
+
+    return 8000;
 }
 
 QString pickId(const InstalledAddon& addon, const QString& type, const QStringList& ids)
@@ -248,10 +280,13 @@ QVector<Stream> dedupeStreams(const QVector<Stream>& streams)
         }
 
         Stream& existing = deduped[*it];
-        QSet<QString> merged(existing.sources.begin(), existing.sources.end());
-        for (const QString& source : stream.sources)
-            merged.insert(source);
-        existing.sources = merged.values();
+        QSet<QString> seenSources(existing.sources.begin(), existing.sources.end());
+        for (const QString& source : stream.sources) {
+            if (seenSources.contains(source))
+                continue;
+            seenSources.insert(source);
+            existing.sources.push_back(source);
+        }
     }
 
     return deduped;
@@ -356,7 +391,7 @@ void StreamService::fetchFromAddon(const InstalledAddon& addon,
     QNetworkReply* reply = m_nam->get(request);
     QTimer* timer = new QTimer(reply);
     timer->setSingleShot(true);
-    timer->setInterval(8000); // v1: flat 8s timeout for all addons.
+    timer->setInterval(timeoutForAddon(addon));
     connect(timer, &QTimer::timeout, reply, [reply]() { reply->abort(); });
     timer->start();
 

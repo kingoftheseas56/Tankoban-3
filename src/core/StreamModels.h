@@ -1,7 +1,15 @@
 // Tankoban 3 - StreamModels (Slice 5).
-// Three-tier stream types 1:1 with Harbor's src/lib/streams/types.ts.
+// Faithful adapter for Harbor's src/lib/streams/types.ts:
+// TypeScript intersections and nullable/undefined fields mapped onto C++ structs.
 // Pipeline: raw JSON -> Stream -> parse -> ParsedStream -> score
 //           -> ScoredStream -> rank -> RankedPicker
+//
+// Sentinel convention: C++ fields use explicit "unknown" values where Harbor uses
+// null/undefined: Resolution::None, HdrFormat::None, Codec/AudioCodec/Source::Unknown,
+// Container::Unknown, empty QString for nullable strings, size=0, seeders=-1,
+// year/yearStart/yearEnd=0, season/episode=0, discIndex=-1, and std::optional
+// RankedPicker::primary. Parser/scorer code must treat these as unknown/no-op, not
+// meaningful data.
 #pragma once
 
 #include <optional>
@@ -13,7 +21,7 @@
 
 namespace tankoban {
 
-// -- enums (1:1 with Harbor) ------------------------------------------
+// -- enums (Harbor values plus C++ sentinels where needed) -------------
 
 enum class Resolution {
     None,
@@ -109,7 +117,7 @@ enum class DebridSlug {
 };
 
 // -- subtitle attached to a stream ------------------------------------
-// 1:1 with Harbor's StreamSubtitle.
+// Harbor-shaped StreamSubtitle.
 // url is raw QString (addon JSON may have odd/encoded URLs;
 // normalize to QUrl later in resolver/player handoff).
 struct StreamSubtitle {
@@ -120,7 +128,7 @@ struct StreamSubtitle {
 };
 
 // -- audio info (parsed) -----------------------------------------------
-// 1:1 with Harbor's AudioInfo
+// Harbor-shaped AudioInfo.
 struct AudioInfo {
     AudioCodec codec = AudioCodec::Unknown;
     int channels = 2;
@@ -140,7 +148,7 @@ struct ProxyHeaders {
 };
 
 // -- TIER 1: raw stream from an addon ----------------------------------
-// 1:1 with Harbor's Stream type
+// Harbor-shaped Stream type; behaviorHints is flattened into explicit fields.
 struct Stream {
     // from addon JSON
     QString name;
@@ -188,7 +196,7 @@ struct Stream {
 };
 
 // -- TIER 2: parsed stream ---------------------------------------------
-// 1:1 with Harbor's ParsedStream = Stream & { parsedTitle, ... }
+// Harbor ParsedStream = Stream & { parsedTitle, ... }, adapted with C++ sentinels.
 struct ParsedStream : Stream {
     QString parsedTitle;
     QString episodeTitle;       // null = empty
@@ -224,14 +232,14 @@ struct ParsedStream : Stream {
 };
 
 // -- one scoring reason ------------------------------------------------
-// 1:1 with Harbor's ScoreReason
+// Harbor-shaped ScoreReason.
 struct ScoreReason {
     QString signal;     // e.g. "cached", "CAM penalty"
     int delta = 0;
 };
 
 // -- TIER 3: scored stream ---------------------------------------------
-// 1:1 with Harbor's ScoredStream = ParsedStream & { score, reasons, tier }
+// Harbor ScoredStream = ParsedStream & { score, reasons, tier }.
 struct ScoredStream : ParsedStream {
     int score = 0;
     QVector<ScoreReason> reasons;
@@ -240,7 +248,7 @@ struct ScoredStream : ParsedStream {
 };
 
 // -- final ranked output -----------------------------------------------
-// 1:1 with Harbor's RankedPicker.
+// Harbor-shaped RankedPicker.
 // primary is optional - Harbor has ScoredStream | null.
 struct RankedPicker {
     std::optional<ScoredStream> primary;

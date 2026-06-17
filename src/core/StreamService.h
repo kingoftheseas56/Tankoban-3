@@ -1,6 +1,9 @@
 // Tankoban 3 - StreamService (Slice 5).
 // Queries enabled Stremio addons for playable streams.
-// Recreated 1:1 from Harbor's src/lib/streams/stream-ids.ts + addons.ts.
+// Harbor-inspired adapter for src/lib/streams/stream-ids.ts + addons.ts.
+// Current MetaDetail/EpisodeItem lacks Harbor's defaultVideoId, mapped IMDb,
+// Kitsu stream id, and per-episode videoId fields, so buildStreamIds preserves
+// the safe minimum candidate IDs available in the Tankoban 3 model.
 #pragma once
 
 #include <QObject>
@@ -24,7 +27,7 @@ public:
                            QNetworkAccessManager* nam,
                            QObject* parent = nullptr);
 
-    // -- pure function, 1:1 with Harbor's buildStreamIds --
+    // -- pure function adapted from Harbor's buildStreamIds --
     // metaId: MetaDetail::id (e.g. "tt1375666", "kitsu:123")
     // episode: the selected episode, or nullptr for movies
     // imdbId: optional fallback IMDB id (may be same as metaId or different)
@@ -35,7 +38,7 @@ public:
                                       const QString& imdbId,
                                       const QString& defaultVideoId);
 
-    // -- async, 1:1 with Harbor's fetchAddonStreams --
+    // -- async adapter for Harbor's fetchAddonStreams --
     // Queries all enabled addons that support "stream" for this type/id.
     // Emits streamsPartial after each addon responds.
     // Emits streamsReady when all addons have responded or timed out.
