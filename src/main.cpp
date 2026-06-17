@@ -9,7 +9,44 @@
 #include "player/PlayerView.h"
 
 #include <QApplication>
+#include <QFileInfo>
 #include <QScreen>
+#include <QUrl>
+
+namespace {
+
+QString demoTitleFromSource(const QString& src)
+{
+    const QFileInfo fileInfo(src);
+    if (fileInfo.exists()) {
+        const QString base = fileInfo.completeBaseName();
+        return base.isEmpty() ? fileInfo.fileName() : base;
+    }
+
+    const QUrl url(src);
+    if (url.isValid()) {
+        const QString fileName = QFileInfo(url.path()).completeBaseName();
+        if (!fileName.isEmpty()) return fileName;
+        if (!url.host().isEmpty()) return url.host();
+    }
+    return src;
+}
+
+QRect demoWindowedRect(const QRect& available)
+{
+    if (!available.isValid()) return QRect(0, 0, 1280, 720);
+
+    QSize size(1280, 720);
+    QRect inset = available.adjusted(48, 32, -48, -48);
+    if (!inset.isValid()) inset = available;
+    size.scale(inset.size(), Qt::KeepAspectRatio);
+
+    QRect rect(QPoint(0, 0), size);
+    rect.moveCenter(available.center());
+    return rect;
+}
+
+} // namespace
 
 int main(int argc, char** argv)
 {
@@ -26,8 +63,8 @@ int main(int argc, char** argv)
         auto* view = new PlayerView();
         view->setWindowTitle(QStringLiteral("Tankoban 3 — player"));
         view->setWindowFlag(Qt::FramelessWindowHint);   // no OS chrome -> no fullscreen flash
-        view->resize(1280, 720);
-        view->move(QGuiApplication::primaryScreen()->availableGeometry().center() - QPoint(640, 360));
+        view->setGeometry(demoWindowedRect(QGuiApplication::primaryScreen()->availableGeometry()));
+        view->setTitleInfo(demoTitleFromSource(src));
         view->show();
         view->play(src);
         return app.exec();

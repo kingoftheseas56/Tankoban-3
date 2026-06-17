@@ -9,7 +9,7 @@
 
 class MpvController;
 class MpvGlWidget;
-class SeekBar;
+class TransportBar;
 class QTimer;
 
 class PlayerView : public QWidget {
@@ -17,6 +17,7 @@ class PlayerView : public QWidget {
 public:
     explicit PlayerView(QWidget* parent = nullptr);
     void play(const QString& url, double startSec = 0.0);
+    void setTitleInfo(const QString& title, const QString& subtitle = QString());
     MpvController* controller() const { return m_controller; }
     PlayerSnapshot snap() const;
 
@@ -31,7 +32,7 @@ protected:
 private:
     MpvController* m_controller = nullptr;
     MpvGlWidget* m_video = nullptr;
-    SeekBar* m_seek = nullptr;        // TEMP smoke (Plan 2 T1); T3 moves it into TransportBar
+    TransportBar* m_chrome = nullptr;
     QTimer* m_clickTimer = nullptr;
     bool m_swallowRelease = false;
     bool m_fakeFs = false;        // borderless-fullscreen via geometry (no OS transition = no blink)

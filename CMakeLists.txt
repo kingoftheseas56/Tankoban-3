@@ -29,8 +29,20 @@ qt_add_executable(Tankoban3
     src/player/HotkeyDispatcher.h
     src/player/HotkeyDispatcher.cpp
     src/util/Theme.h
+    src/util/VolumeCurve.h
+    src/util/VolumeCurve.cpp
     src/chrome/SeekBar.h
     src/chrome/SeekBar.cpp
+    src/chrome/VolumeControl.h
+    src/chrome/VolumeControl.cpp
+    src/chrome/AudioMenu.h
+    src/chrome/AudioMenu.cpp
+    src/chrome/TimeLabel.h
+    src/chrome/TimeLabel.cpp
+    src/chrome/TitleInfo.h
+    src/chrome/TitleInfo.cpp
+    src/chrome/TransportBar.h
+    src/chrome/TransportBar.cpp
 
     src/core/MetaItem.h
     src/core/MetaDetail.h
@@ -128,8 +140,8 @@ add_custom_command(TARGET Tankoban3 POST_BUILD
 
 # ── Pure-logic self-test (CTest; no external deps) ───────────────────────────
 enable_testing()
-add_executable(Tankoban3SelfTest src/selftest_main.cpp src/util/TimeFormat.cpp)
-target_link_libraries(Tankoban3SelfTest PRIVATE Qt6::Core)
+add_executable(Tankoban3SelfTest src/selftest_main.cpp src/util/TimeFormat.cpp src/util/VolumeCurve.cpp)
+target_link_libraries(Tankoban3SelfTest PRIVATE Qt6::Core Qt6::Gui)
 target_include_directories(Tankoban3SelfTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 add_test(NAME selftest COMMAND Tankoban3SelfTest)
 
