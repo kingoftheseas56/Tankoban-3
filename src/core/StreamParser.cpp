@@ -152,9 +152,12 @@ const QRegularExpression isoPairRx = makeRx(
 
 const QRegularExpression containerRx = makeRx(QStringLiteral(R"re(\.(mkv|mp4|m4v|avi|webm|mov|ts|wmv)\b)re"));
 const QRegularExpression sizeRx = makeRx(QStringLiteral(R"re((\d+(?:\.\d+)?)\s*(GB|MB|TB|GiB|MiB|TiB)\b)re"));
-const QRegularExpression seedersRx = makeRx(QStringLiteral(R"re((?:S:|seeds?:?|\bS\s*=\s*)\s*(\d+))re"));
-const QRegularExpression seedersEmojiRx = makeRx(QStringLiteral(R"re([\p{So}]\s*(\d+))re"),
-                                                 QRegularExpression::UseUnicodePropertiesOption);
+// Harbor parser-metadata.ts SEEDERS_RX: the only seeder-emoji prefixes are
+// U+1F465 (busts) and U+1F464 (bust); \x{} escapes keep this source ASCII-clean.
+// A generic \p{So} class would misread any emoji-tagged number (e.g. a size
+// badge) as a seeder count, so this stays the exact single-pass Harbor regex.
+const QRegularExpression seedersRx = makeRx(
+    QStringLiteral(R"re((?:\x{1F465}|\x{1F464}|S:|seeds?:?|\bS\s*=\s*)\s*(\d+))re"));
 const QRegularExpression animeHashRx = makeRx(QStringLiteral(R"re(\[([0-9A-F]{8})\])re"));
 const QRegularExpression repackRx = makeRx(QStringLiteral(R"re(\bREPACK(\d+)?\b)re"));
 const QRegularExpression yearRangeRx = makeRx(QStringLiteral(R"re(\b(19\d\d|20\d\d)[\-.](19\d\d|20\d\d)\b)re"),
@@ -195,7 +198,7 @@ QVector<const QRegularExpression*> allRegexes()
         &hdrHlgRx, &hdrHdr10Rx, &audioAtmosRx, &audioTrueHdRx, &audioDtsHdMaRx,
         &audioDtsRx, &audioDdPlusRx, &audioAc3Rx, &audioAacRx, &audioFlacRx,
         &audioOpusRx, &channelsRx, &bitDepthRx, &langRx, &flagRx, &isoPairRx,
-        &containerRx, &sizeRx, &seedersRx, &seedersEmojiRx, &animeHashRx, &repackRx,
+        &containerRx, &sizeRx, &seedersRx, &animeHashRx, &repackRx,
         &yearRangeRx, &discRx, &editionRx, &editionNormalizeRx, &qualityStopRx, &remuxRx,
         &hardcodedRx, &nonAlnumRx, &episodeJunkRx, &leadingSepRx, &separatorRx, &seasonPackRx
     };
@@ -710,9 +713,7 @@ qint64 parseSize(const QString& text, qint64 hint)
 
 int parseSeeders(const QString& text)
 {
-    QRegularExpressionMatch match = seedersRx.match(text);
-    if (!match.hasMatch())
-        match = seedersEmojiRx.match(text);
+    const QRegularExpressionMatch match = seedersRx.match(text);
     return match.hasMatch() ? match.captured(1).toInt() : -1;
 }
 
@@ -782,11 +783,11 @@ int computeScamScore(Source source, Resolution resolution, qint64 size)
         score += 3;
     if (resolution == Resolution::HD && size > 0 && size < 250ll * 1024 * 1024)
         score += 3;
-    if ((resolution == Resolution::SD || resolution == Resolution::SD_480)
-        && size > 0 && size < 250ll * 1024 * 1024)
+    // Harbor parser-metadata.ts checks resolution === "SD" only here; 480p is a
+    // distinct tier and is intentionally NOT scam-penalized by these two rules.
+    if (resolution == Resolution::SD && size > 0 && size < 250ll * 1024 * 1024)
         score += 3;
-    if ((resolution == Resolution::SD || resolution == Resolution::SD_480)
-        && source == Source::Other)
+    if (resolution == Resolution::SD && source == Source::Other)
         score += 2;
     return score;
 }

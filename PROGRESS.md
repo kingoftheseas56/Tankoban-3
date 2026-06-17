@@ -22,9 +22,10 @@
 - Status: Done
 - Built: StreamParser - parseStream pipeline, filename selection, PTT-equivalent extraction, resolution/source/codec/HDR/audio/language/metadata parsing
 - Files: src/core/StreamParser.h, src/core/StreamParser.cpp, CMakeLists.txt
-- Decisions: parser-cache-flags.ts deferred per no-debrid v1; cached and inLibrary remain empty. Qt accepted the TS/TC lookbehind translations, so no source regex deviation was required.
+- Decisions: parser-cache-flags.ts deferred per no-debrid v1; cached and inLibrary remain empty (anitomy.ts is not part of parseStream — only pipeline.ts uses it — so it is out of M3 scope). parsePtt() is a QRegularExpression approximation of the parse-torrent-title npm library (the single sanctioned adaptation) covering title/year/season/episode/group/edition flags/channels/bitdepth; the sub-parsers (resolution/source/codec/hdr/audio/language/metadata/trusted-groups) are faithful 1:1 ports. Qt accepted the TS/TC source lookbehinds, so no source regex deviation was required. TORRENTIO_NOISE / line-start-emoji filters use Unicode \p{So}\p{Cf} property classes as a broader-but-benign approximation of Harbor's literal emoji set (these only strip/penalize, never extract data). isTrustedGroup + the 50-group table live in StreamParser per the parser folder, but parseStream does not call them (Harbor's parser does not either — scoring consumes trust); StreamScorer keeps its own copy.
 - Smoke: build.bat + StreamParser probe both exit 0
-- Known issues: Harbor parity still needs review against parser/*.ts before merge safety is self-certified
+- 2026-06-17 Opus M3 audit (vs Harbor parser/*.ts): two parity corrections applied — (1) parseSeeders restored to Harbor's exact seeder-emoji set (U+1F465/U+1F464 via \x{} escapes) instead of a generic \p{So} fallback that misread size/other emoji-tagged numbers as seeders; (2) computeScamScore now penalizes only Resolution::SD (not 480p), matching Harbor exactly. parsedTitle's text[:100] fallback when filenameLine is empty is per the M3 spec (Harbor returns "" there) and is left as a benign intentional deviation.
+- Known issues: Harbor parity reviewed by Opus; end-to-end addon-data parsing still smoked in a later wired milestone
 - Next: M4 - StreamScorer
 
 ## Milestone 4: StreamScorer
