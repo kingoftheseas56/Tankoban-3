@@ -90,6 +90,7 @@ PlayerView::PlayerView(QWidget* parent) : QWidget(parent)
     connect(m_chrome, &TransportBar::audioDelayRequested, m_controller, &MpvController::setAudioDelay);
     connect(m_chrome, &TransportBar::subtitleTrackRequested, m_controller, &MpvController::setSubtitleTrack);
     connect(m_chrome, &TransportBar::subtitleDelayRequested, m_controller, &MpvController::setSubDelay);
+    connect(m_chrome, &TransportBar::speedRequested, m_controller, &MpvController::setRate);
     connect(m_chrome, &TransportBar::fullscreenRequested, this, &PlayerView::toggleFullscreen);
 
     qApp->installEventFilter(new HotkeyDispatcher(this, this));
