@@ -1,4 +1,5 @@
 #include "chrome/AudioMenu.h"
+#include "chrome/SubtitleMenu.h"
 #include "chrome/TransportBar.h"
 #include "chrome/SeekBar.h"
 #include "chrome/TimeLabel.h"
@@ -192,6 +193,7 @@ TransportBar::TransportBar(QWidget* parent) : QWidget(parent)
     m_seekBack = new ChromeButton(Glyph::SeekBack, 56, this);
     m_seekForward = new ChromeButton(Glyph::SeekForward, 56, this);
     m_audioMenu = new AudioMenu(this);
+    m_subtitleMenu = new SubtitleMenu(this);
     m_fullscreen = new ChromeButton(Glyph::Maximize, 48, this);
 
     connect(m_back, &QAbstractButton::clicked, this, &TransportBar::backRequested);
@@ -204,6 +206,9 @@ TransportBar::TransportBar(QWidget* parent) : QWidget(parent)
     connect(m_audioMenu, &AudioMenu::trackRequested, this, &TransportBar::audioTrackRequested);
     connect(m_audioMenu, &AudioMenu::delayRequested, this, &TransportBar::audioDelayRequested);
     connect(m_audioMenu, &AudioMenu::openChanged, this, &TransportBar::setMenuOpen);
+    connect(m_subtitleMenu, &SubtitleMenu::trackRequested, this, &TransportBar::subtitleTrackRequested);
+    connect(m_subtitleMenu, &SubtitleMenu::delayRequested, this, &TransportBar::subtitleDelayRequested);
+    connect(m_subtitleMenu, &SubtitleMenu::openChanged, this, &TransportBar::setMenuOpen);
     connect(m_fullscreen, &QAbstractButton::clicked, this, &TransportBar::fullscreenRequested);
     connect(m_seek, &SeekBar::seekRequested, this, &TransportBar::seekRequested);
     connect(m_seek, &SeekBar::hoveringChanged, this, [this](bool hovering) {
@@ -223,6 +228,7 @@ void TransportBar::setSnapshot(const PlayerSnapshot& snap)
     m_end->setDuration(snap.durationSec);
     m_volume->setSnapshot(snap);
     m_audioMenu->setSnapshot(snap);
+    m_subtitleMenu->setSnapshot(snap);
     static_cast<ChromeButton*>(m_playPause)->setGlyph(m_playing ? Glyph::Pause : Glyph::Play);
     restartHideTimer();
 }
@@ -314,9 +320,15 @@ void TransportBar::layoutChrome()
     m_seekBack->setGeometry(cx, ctrlY + 4, 56, 56);
     m_playPause->setGeometry(cx + 62, ctrlY, 64, 64);
     m_seekForward->setGeometry(cx + 132, ctrlY + 4, 56, 56);
-    m_audioMenu->setGeometry(w - padX - 48 - 10 - 48, ctrlY + 8, 48, 48);
+    // Bottom-right cluster, Harbor order: audio · subtitle · fullscreen.
+    const int fsX = w - padX - 48;
+    const int subX = fsX - 10 - 48;
+    const int audX = subX - 10 - 48;
+    m_audioMenu->setGeometry(audX, ctrlY + 8, 48, 48);
+    m_subtitleMenu->setGeometry(subX, ctrlY + 8, 48, 48);
+    m_fullscreen->setGeometry(fsX, ctrlY + 8, 48, 48);
     m_audioMenu->syncPopupPosition();
-    m_fullscreen->setGeometry(w - padX - 48, ctrlY + 8, 48, 48);
+    m_subtitleMenu->syncPopupPosition();
 }
 
 void TransportBar::restartHideTimer()

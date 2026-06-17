@@ -9,6 +9,7 @@ class QGraphicsOpacityEffect;
 class QPropertyAnimation;
 class QTimer;
 class AudioMenu;
+class SubtitleMenu;
 class SeekBar;
 class TimeLabel;
 class VolumeControl;
@@ -32,6 +33,8 @@ signals:
     void muteRequested(bool muted);
     void audioTrackRequested(const QString& id);
     void audioDelayRequested(double sec);
+    void subtitleTrackRequested(const QString& id);   // empty -> Off (sid=no)
+    void subtitleDelayRequested(double sec);
     void fullscreenRequested();
 
 public slots:
@@ -58,6 +61,7 @@ private:
     QAbstractButton* m_seekForward = nullptr;
     QAbstractButton* m_fullscreen = nullptr;
     AudioMenu* m_audioMenu = nullptr;
+    SubtitleMenu* m_subtitleMenu = nullptr;
     VolumeControl* m_volume = nullptr;
     TitleInfo* m_titleInfo = nullptr;
     QGraphicsOpacityEffect* m_opacity = nullptr;

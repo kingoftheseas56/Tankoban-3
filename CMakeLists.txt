@@ -43,6 +43,8 @@ qt_add_executable(Tankoban3
     src/chrome/TitleInfo.cpp
     src/chrome/TransportBar.h
     src/chrome/TransportBar.cpp
+    src/chrome/SubtitleMenu.h
+    src/chrome/SubtitleMenu.cpp
 
     src/core/MetaItem.h
     src/core/MetaDetail.h
