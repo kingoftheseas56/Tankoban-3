@@ -106,6 +106,7 @@ QLabel#LoadingText {
                     const QString refreshedBackdrop =
                         !detail.background.isEmpty() ? detail.background : detail.poster;
                     m_backdrop->setSource(refreshedBackdrop);
+                    scheduleBackdropRecomposite();
                 }
 
                 if (!m_currentEpisode)
@@ -228,6 +229,7 @@ void PlayPickerPage::open(const MetaDetail& meta, std::optional<EpisodeItem> epi
     show();
     raise();
     positionBackButton();
+    scheduleBackdropRecomposite();
 
     if (m_meta && !meta.id.isEmpty() && !meta.type.isEmpty())
         m_meta->fetchDetail(meta.type, meta.id);
@@ -271,6 +273,24 @@ void PlayPickerPage::positionBackButton()
         return;
     m_back->move(20, 20);
     m_back->raise();
+}
+
+void PlayPickerPage::scheduleBackdropRecomposite()
+{
+    // The backdrop image loads asynchronously and sits behind a translucent scroll
+    // viewport, which does NOT recomposite on its own when the image lands — that is the
+    // "first-open banner strip" (second open is fine because the image is cached and
+    // paints before show). We can't add a signal to BackdropLayer (out of scope), so nudge
+    // the viewport to repaint at a few intervals after the source is set; once the image is
+    // in, the viewport recomposites the full banner. Fixed intervals = no paint feedback loop.
+    if (!m_scroll)
+        return;
+    for (int delay : {120, 350, 800, 1600, 3000}) {
+        QTimer::singleShot(delay, this, [this]() {
+            if (m_scroll)
+                m_scroll->viewport()->update();
+        });
+    }
 }
 
 } // namespace tankoban
