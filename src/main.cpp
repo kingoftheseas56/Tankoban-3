@@ -7,10 +7,12 @@
 #include "ui/MainWindow.h"
 #include "ui/Theme.h"
 #include "player/PlayerView.h"
+#include "engine/MpvController.h"
 
 #include <QApplication>
 #include <QFileInfo>
 #include <QScreen>
+#include <QTimer>
 #include <QUrl>
 
 namespace {
@@ -67,6 +69,14 @@ int main(int argc, char** argv)
         view->setTitleInfo(demoTitleFromSource(src));
         view->show();
         view->play(src);
+        // Demo/test affordance: TANKOBAN3_PLAYER_DEMO_SUB=<sid> selects a subtitle
+        // track shortly after load, so embedded subs can be eyeballed without the menu.
+        const QString demoSub = qEnvironmentVariable("TANKOBAN3_PLAYER_DEMO_SUB");
+        if (!demoSub.isEmpty()) {
+            QTimer::singleShot(1800, view, [view, demoSub] {
+                if (view->controller()) view->controller()->setSubtitleTrack(demoSub);
+            });
+        }
         return app.exec();
     }
 
