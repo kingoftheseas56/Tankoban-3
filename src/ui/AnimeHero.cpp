@@ -27,6 +27,7 @@
 #include <QShowEvent>
 #include <QStandardPaths>
 #include <QStyle>
+#include <QSvgRenderer>
 #include <QTimer>
 #include <QUrl>
 #include <QVariantAnimation>
@@ -70,6 +71,34 @@ QPushButton* makeArrow(QWidget* parent, const QString& glyph)
         "#AnimeArrow:hover{background:rgba(45,51,63,0.95);}"));
     return b;
 }
+
+// Harbor's MalLogo (components/icons/mal-logo.tsx) ported 1:1 — the MyAnimeList wordmark,
+// rendered to a pixmap at the given ink color + pixel height (2x for HiDPI).
+QPixmap malLogoPixmap(const QColor& color, int heightPx)
+{
+    const QString svg = QStringLiteral(
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='256 409 512 182' fill='%1'>"
+        "<path d='M432.49 410.61V590.3l-44.86-.06V479l-43.31 51.29-42.43-52.44-.43 112.75H256"
+        "V410.65h47l39.79 54.29 43-54.31zm184.06 44.14.53 135.15h-50.45l-.17-61.25h-59.73c1.49"
+        " 10.65 4.48 27 8.9 38 3.31 8.13 6.36 16 12.44 24.06l-36.37 24c-7.45-13.57-13.27-28.52"
+        "-18.73-44.42a198.31 198.31 0 0 1-10.82-46.49c-1.81-16-2.07-31.38 2.28-47.19a83.37 83.37"
+        " 0 0 1 24.77-39.81c6.68-6.25 16-10.67 23.47-14.66s15.85-5.63 23.62-7.66a158 158 0 0 1"
+        " 25.41-3.9c8.49-.73 23.62-1.41 51-.6l11.63 37.31h-58.78c-12.65.17-18.73 0-28.61 4.46a47.7"
+        " 47.7 0 0 0-27.26 41l56.81.7.81-38.61h49.26zM701.72 410v141.35L768 552l-9.17 37.87H656.28"
+        "V409.33z'/></svg>")
+        .arg(color.name());
+    QSvgRenderer r(svg.toUtf8());
+    const QSizeF vb = r.viewBoxF().size();
+    const qreal aspect = vb.height() > 0 ? vb.width() / vb.height() : 2.8;
+    const int hp = heightPx * 2; // 2x for crisp HiDPI
+    QPixmap pm(int(hp * aspect), hp);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    r.render(&p);
+    p.end();
+    pm.setDevicePixelRatio(2.0);
+    return pm;
+}
 } // namespace
 
 AnimeHero::AnimeHero(QWidget* parent)
@@ -112,7 +141,15 @@ AnimeHero::AnimeHero(QWidget* parent)
     m_desc->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     m_desc->setWordWrap(true);
     m_desc->setMaximumWidth(520);
-    m_desc->setStyleSheet(QStringLiteral("#AnimeDesc{font-size:15px;color:#aab1bd;}"));
+    m_desc->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    m_desc->setStyleSheet(QStringLiteral("#AnimeDesc{color:#aab1bd;}"));
+    {
+        QFont df = m_desc->font(); // size via QFont so lineSpacing is exact for the clamp
+        df.setPixelSize(15);
+        m_desc->setFont(df);
+        // Harbor line-clamp-3: a true 3-line visual clamp (not a character trim).
+        m_desc->setMaximumHeight(m_desc->fontMetrics().lineSpacing() * 3);
+    }
     col->addWidget(m_desc);
 
     auto* btns = new QWidget(m_content);
@@ -153,8 +190,22 @@ AnimeHero::AnimeHero(QWidget* parent)
         "background:rgba(26,29,36,0.45);}"          // Harbor border-edge / bg-elevated/45
         "#AnimeSaveBtn:disabled{color:#f3f1ea;}"));  // legible, not greyed
 
+    // MAL score chip (anime-hero.tsx:209-216): MyAnimeList logo + score, per-slide.
+    m_malChip = new QWidget(btns);
+    m_malChip->setAttribute(Qt::WA_TranslucentBackground, true);
+    auto* malRow = new QHBoxLayout(m_malChip);
+    malRow->setContentsMargins(4, 0, 0, 0); // Harbor ms-1
+    malRow->setSpacing(6);
+    auto* malLogo = new QLabel(m_malChip);
+    malLogo->setPixmap(malLogoPixmap(QColor(QStringLiteral("#aab1bd")), 12)); // h-[12px] ink-muted
+    malRow->addWidget(malLogo);
+    m_malScore = new QLabel(m_malChip);
+    m_malScore->setStyleSheet(QStringLiteral("color:#f3f1ea;font-size:13px;font-weight:600;"));
+    malRow->addWidget(m_malScore);
+
     brow->addWidget(m_start);
     brow->addWidget(m_save);
+    brow->addWidget(m_malChip);
     brow->addStretch();
     col->addWidget(btns);
 
@@ -232,11 +283,15 @@ void AnimeHero::showSlide(int i, bool animate)
     }
     m_meta->setText(parts.join(QStringLiteral("    ·    ")));
 
-    QString desc = m.description;
-    if (desc.size() > 260)
-        desc = desc.left(259).trimmed() + QStringLiteral("…");
-    m_desc->setText(desc);
-    m_desc->setVisible(!desc.isEmpty());
+    m_desc->setText(m.description); // 3-line visual clamp via maximumHeight (set in ctor)
+    m_desc->setVisible(!m.description.isEmpty());
+
+    if (!m.imdbRating.isEmpty()) { // MAL score chip, shown only when the slide has a score
+        m_malScore->setText(m.imdbRating);
+        m_malChip->show();
+    } else {
+        m_malChip->hide();
+    }
 
     if (animate) {
         auto* fx = new QPropertyAnimation(m_contentFx, "opacity", this);

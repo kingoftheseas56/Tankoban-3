@@ -81,6 +81,8 @@ private:
     QLabel* m_desc = nullptr;
     QPushButton* m_start = nullptr;
     QPushButton* m_save = nullptr;
+    QWidget* m_malChip = nullptr; // MAL logo + score, shown when the slide has a score
+    QLabel* m_malScore = nullptr;
 
     QPushButton* m_prevArrow = nullptr;
     QPushButton* m_nextArrow = nullptr;
