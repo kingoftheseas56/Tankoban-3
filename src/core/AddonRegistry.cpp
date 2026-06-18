@@ -338,6 +338,30 @@ void AddonRegistry::installFromUrl(const QString& rawUrl)
     });
 }
 
+void AddonRegistry::seedDefaultsIfNeeded()
+{
+    QSettings s = appSettings();
+    if (s.value(QStringLiteral("defaultsSeeded"), false).toBool())
+        return;
+    // Seed once, ever — set the flag up front so removing an addon later never
+    // triggers a re-seed.
+    s.setValue(QStringLiteral("defaultsSeeded"), true);
+
+    // Curated "pre-installed" baseline — one addon per capability. The full library
+    // is the in-app addon store; these just make a fresh install useful out of the box.
+    // NOTE: bare Torrentio returns torrents (needs the resolver) — its rows will show
+    // but won't play until that lands.
+    static const char* const kDefaults[] = {
+        "https://v3-cinemeta.strem.io/manifest.json",      // catalog + metadata
+        "https://anime-kitsu.strem.fun/manifest.json",     // anime catalog / meta
+        "https://stremify.hayd.uk/manifest.json",          // direct HTTP streams (plays now)
+        "https://torrentio.strem.fun/manifest.json",       // torrent streams (resolver pending)
+        "https://opensubtitles-v3.strem.io/manifest.json", // subtitles
+    };
+    for (const char* const url : kDefaults)
+        installFromUrl(QString::fromLatin1(url));
+}
+
 void AddonRegistry::uninstall(const QString& manifestUrl)
 {
     const int before = m_addons.size();

@@ -10,6 +10,9 @@
 #include "ui/AddonsPage.h"
 #include "ui/DetailPage.h"
 #include "ui/HomePage.h"
+#include "ui/RowPage.h"
+#include "ui/GridPage.h"
+#include "ui/ShowsPage.h"
 #include "ui/PlayPickerPage.h"
 #include "ui/Sidebar.h"
 #include "ui/VideoPlayerPage.h"
@@ -128,6 +131,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     m_registry = new AddonRegistry(this);
     m_registry->load();
+    m_registry->seedDefaultsIfNeeded();   // first run: install the curated default addons
 
     for (const auto& v : kViews) {
         const QString id = QString::fromLatin1(v.id);
@@ -135,9 +139,20 @@ MainWindow::MainWindow(QWidget* parent)
         if (id == QLatin1String("home")) {
             auto* home = new HomePage(this);
             connect(home, &HomePage::openDetailRequested, this, &MainWindow::openDetail);
+            connect(home, &HomePage::openGridRequested, this, &MainWindow::openGrid);
             page = home;
         } else if (id == QLatin1String("addons")) {
             page = new AddonsPage(m_registry, this);
+        } else if (id == QLatin1String("movies")) {
+            auto* rowPage = new RowPage(id, this);
+            connect(rowPage, &RowPage::openDetailRequested, this, &MainWindow::openDetail);
+            connect(rowPage, &RowPage::openGridRequested, this, &MainWindow::openGrid);
+            page = rowPage;
+        } else if (id == QLatin1String("shows")) {
+            auto* showsPage = new ShowsPage(this);
+            connect(showsPage, &ShowsPage::openDetailRequested, this, &MainWindow::openDetail);
+            connect(showsPage, &ShowsPage::openGridRequested, this, &MainWindow::openGrid);
+            page = showsPage;
         } else {
             page = makePlaceholder(QString::fromLatin1(v.title));
         }
@@ -154,6 +169,14 @@ MainWindow::MainWindow(QWidget* parent)
             [this](const MetaItem& m) { openPlayPicker(m, std::nullopt); });
     connect(m_detailPage, &DetailPage::episodeRequested, this,
             [this](const MetaItem& m, const EpisodeItem& ep) { openPlayPicker(m, ep); });
+
+    // "View all" category grid is a pushed frame too (sidebar stays visible, Harbor-style);
+    // back returns to whatever route/page opened it; a poster opens Detail over the grid.
+    m_gridPage = new GridPage(this);
+    m_gridIndex = m_content->addWidget(m_gridPage);
+    connect(m_gridPage, &GridPage::backRequested, this,
+            [this]() { m_content->setCurrentIndex(m_gridReturnIndex); });
+    connect(m_gridPage, &GridPage::openDetailRequested, this, &MainWindow::openDetail);
 
     m_playPicker = new PlayPickerPage(this);
     m_playPicker->setGeometry(rect());
@@ -211,6 +234,15 @@ void MainWindow::openDetail(const MetaItem& meta)
     m_detailPage->load(meta);
     m_returnIndex = m_content->currentIndex();
     m_content->setCurrentIndex(m_detailIndex);
+}
+
+void MainWindow::openGrid(const QString& title, const QVector<MetaItem>& items)
+{
+    if (!m_gridPage)
+        return;
+    m_gridPage->setCatalog(title, items);
+    m_gridReturnIndex = m_content->currentIndex();
+    m_content->setCurrentIndex(m_gridIndex);
 }
 
 void MainWindow::openPlayPicker(const MetaItem& meta, std::optional<EpisodeItem> episode)

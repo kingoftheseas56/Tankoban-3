@@ -29,9 +29,13 @@ public:
 
     void setItems(const QVector<MetaItem>& items);
     void setStatus(const QString& text);
+    // Show/hide the Harbor "View all" affordance in the row header. Hidden by default;
+    // a page enables it for rows that can open a full-category grid (Harbor: onViewAll).
+    void setViewAllVisible(bool visible);
 
 signals:
     void activated(const MetaItem& item);
+    void viewAllRequested();
 
 protected:
     void showEvent(QShowEvent* e) override;
@@ -45,6 +49,7 @@ private:
     void scrollByPage(int dir);   // -1 left / +1 right, smooth glide
 
     QLabel* m_title = nullptr;
+    QPushButton* m_viewAll = nullptr;
     QLabel* m_status = nullptr;
     QScrollArea* m_scroll = nullptr;
     QWidget* m_track = nullptr;

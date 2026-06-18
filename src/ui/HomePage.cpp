@@ -57,6 +57,14 @@ HomePage::HomePage(QWidget* parent)
     connect(m_popularMovies, &CatalogRow::activated, this, &HomePage::openDetailRequested);
     connect(m_popularSeries, &CatalogRow::activated, this, &HomePage::openDetailRequested);
 
+    // "View all" → full-category grid (Harbor onViewAll), carrying the full fetched list.
+    m_popularMovies->setViewAllVisible(true);
+    m_popularSeries->setViewAllVisible(true);
+    connect(m_popularMovies, &CatalogRow::viewAllRequested, this,
+            [this]() { emit openGridRequested(QStringLiteral("Popular Movies"), m_movieItems); });
+    connect(m_popularSeries, &CatalogRow::viewAllRequested, this,
+            [this]() { emit openGridRequested(QStringLiteral("Popular Series"), m_seriesItems); });
+
     m_addons = new AddonClient(this);
     connect(m_addons, &AddonClient::catalogReady, this,
             [this](const QString& key, const QVector<MetaItem>& items) {

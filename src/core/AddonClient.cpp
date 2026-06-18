@@ -68,6 +68,12 @@ void AddonClient::fetchCatalog(const QString& rowKey, const QString& base,
             m.releaseInfo = o.value(QStringLiteral("releaseInfo")).toString();
             m.imdbRating = o.value(QStringLiteral("imdbRating")).toString();
             m.runtime = o.value(QStringLiteral("runtime")).toString();
+            const QJsonArray genres = o.value(QStringLiteral("genres")).toArray();
+            for (const QJsonValue& g : genres) {
+                const QString name = g.toString();
+                if (!name.isEmpty())
+                    m.genres << name;
+            }
             if (!m.poster.isEmpty())
                 items.push_back(m);
         }

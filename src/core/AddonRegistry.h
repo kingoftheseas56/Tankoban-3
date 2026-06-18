@@ -30,6 +30,7 @@ public:
                                         const QString& id) const;
 
     void load();                                // restore from QSettings
+    void seedDefaultsIfNeeded();                // first run: install the curated default addons
     void installFromUrl(const QString& rawUrl); // fetch + validate + install/replace
     void uninstall(const QString& manifestUrl);
     void setEnabled(const QString& manifestUrl, bool enabled);

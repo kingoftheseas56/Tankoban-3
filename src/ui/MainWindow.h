@@ -10,6 +10,7 @@
 #include <optional>
 
 #include <QHash>
+#include <QVector>
 #include <QWidget>
 
 #include "core/MetaDetail.h"
@@ -27,6 +28,7 @@ namespace tankoban {
 
 class Sidebar;
 class DetailPage;
+class GridPage;
 class AddonRegistry;
 class PlayPickerPage;
 class StreamService;
@@ -48,6 +50,8 @@ protected:
 private:
     QWidget* makePlaceholder(const QString& title);
     void openDetail(const MetaItem& meta);
+    // Open a full-category grid ("View all"), pushed over the current route; back returns.
+    void openGrid(const QString& title, const QVector<MetaItem>& items);
     void openPlayPicker(const MetaItem& meta, std::optional<EpisodeItem> episode);
     MetaDetail detailFromMetaItem(const MetaItem& meta) const;
     // Raw addon streams -> parsed -> scored -> ranked (M3/M4 brain), for the picker.
@@ -70,6 +74,7 @@ private:
     QHash<QString, int> m_pageIndex;
     AddonRegistry* m_registry = nullptr;
     DetailPage* m_detailPage = nullptr;
+    GridPage* m_gridPage = nullptr;
     PlayPickerPage* m_playPicker = nullptr;
     QNetworkAccessManager* m_streamNetwork = nullptr;
     StreamService* m_streamService = nullptr;
@@ -77,6 +82,8 @@ private:
     MetaDetail m_currentPickerMeta;
     std::optional<EpisodeItem> m_currentPickerEpisode;
     int m_detailIndex = -1;
+    int m_gridIndex = -1;
+    int m_gridReturnIndex = 0;
     int m_playerIndex = -1;
     int m_returnIndex = 0;
     bool m_chromeApplied = false;

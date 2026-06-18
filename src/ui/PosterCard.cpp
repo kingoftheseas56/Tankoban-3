@@ -2,10 +2,13 @@
 
 #include "ui/PosterCard.h"
 
+#include <QEasingCurve>
 #include <QEnterEvent>
 #include <QImage>
 #include <QLabel>
 #include <QMouseEvent>
+#include <QPoint>
+#include <QPropertyAnimation>
 #include <QNetworkAccessManager>
 #include <QNetworkDiskCache>
 #include <QNetworkReply>
@@ -49,7 +52,9 @@ PosterCard::PosterCard(const MetaItem& item, QWidget* parent)
     setCursor(Qt::PointingHandCursor);
 
     auto* col = new QVBoxLayout(this);
-    col->setContentsMargins(0, 0, 0, 0);
+    // Top padding = the hover lift, so the poster has room to rise to the card's top edge
+    // on hover without being clipped by the card (Qt clips children to the parent rect).
+    col->setContentsMargins(0, kHoverLift, 0, 0);
     col->setSpacing(8);
 
     m_poster = new QLabel(this);
@@ -63,6 +68,12 @@ PosterCard::PosterCard(const MetaItem& item, QWidget* parent)
     m_title->setFixedWidth(kPosterW);
     m_title->setWordWrap(false);
     col->addWidget(m_title);
+
+    // Hover lift (Harbor PickCard group-hover:-translate-y-2): the poster glides up ~8px
+    // on hover and settles back on leave. Only the poster moves; the title stays put.
+    m_liftAnim = new QPropertyAnimation(m_poster, "pos", this);
+    m_liftAnim->setDuration(260);
+    m_liftAnim->setEasingCurve(QEasingCurve::OutCubic);
 }
 
 void PosterCard::ensureLoaded()
@@ -109,9 +120,15 @@ void PosterCard::loadPoster(const QString& url)
 
 void PosterCard::enterEvent(QEnterEvent*)
 {
-    setProperty("hover", true);
+    setProperty("hover", true); // drives the gold ring via Theme QSS
     style()->unpolish(this);
     style()->polish(this);
+    if (m_liftAnim) {
+        m_liftAnim->stop();
+        m_liftAnim->setStartValue(m_poster->pos());
+        m_liftAnim->setEndValue(QPoint(0, 0)); // rise to the card's top edge
+        m_liftAnim->start();
+    }
 }
 
 void PosterCard::leaveEvent(QEvent*)
@@ -119,6 +136,12 @@ void PosterCard::leaveEvent(QEvent*)
     setProperty("hover", false);
     style()->unpolish(this);
     style()->polish(this);
+    if (m_liftAnim) {
+        m_liftAnim->stop();
+        m_liftAnim->setStartValue(m_poster->pos());
+        m_liftAnim->setEndValue(QPoint(0, kHoverLift)); // settle back to rest
+        m_liftAnim->start();
+    }
 }
 
 void PosterCard::mousePressEvent(QMouseEvent* e)

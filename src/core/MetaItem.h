@@ -6,6 +6,7 @@
 #pragma once
 
 #include <QString>
+#include <QStringList>
 
 namespace tankoban {
 
@@ -19,6 +20,7 @@ struct MetaItem {
     QString releaseInfo; // year, e.g. "2026" (the hero stat line)
     QString imdbRating;  // e.g. "8.1" (the hero stat line)
     QString runtime;     // e.g. "141 min" (the hero stat line)
+    QStringList genres;  // e.g. ["Drama","Horror"] (the hero meta row)
 };
 
 } // namespace tankoban

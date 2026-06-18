@@ -33,9 +33,32 @@ CatalogRow::CatalogRow(const QString& title, QWidget* parent)
     col->setContentsMargins(0, 0, 0, 0);
     col->setSpacing(12);
 
+    // Header: title on the left, optional "View all" on the right (Harbor row.tsx —
+    // a flex justify-between header that reveals View all whenever onViewAll is wired).
+    auto* header = new QHBoxLayout();
+    header->setContentsMargins(0, 0, 0, 0);
+    header->setSpacing(8);
+
     m_title = new QLabel(title, this);
     m_title->setObjectName(QStringLiteral("RowTitle"));
-    col->addWidget(m_title);
+    header->addWidget(m_title);
+    header->addStretch();
+
+    m_viewAll = new QPushButton(QStringLiteral("View all"), this);
+    m_viewAll->setObjectName(QStringLiteral("RowViewAll"));
+    m_viewAll->setCursor(Qt::PointingHandCursor);
+    m_viewAll->setIcon(navIcon(QStringLiteral("chev-right"), QColor(QStringLiteral("#8b8f99")), 14));
+    m_viewAll->setIconSize(QSize(14, 14));
+    m_viewAll->setLayoutDirection(Qt::RightToLeft); // icon trails the label, Harbor-style
+    m_viewAll->setStyleSheet(QStringLiteral(
+        "#RowViewAll{border:none;background:transparent;color:#8b8f99;font-size:12.5px;"
+        "font-weight:500;padding:2px 2px;}"
+        "#RowViewAll:hover{color:#f3f1ea;}"));
+    m_viewAll->hide();
+    connect(m_viewAll, &QPushButton::clicked, this, &CatalogRow::viewAllRequested);
+    header->addWidget(m_viewAll);
+
+    col->addLayout(header);
 
     m_status = new QLabel(QStringLiteral("Loading…"), this);
     m_status->setObjectName(QStringLiteral("RowStatus"));
@@ -84,6 +107,12 @@ void CatalogRow::setStatus(const QString& text)
 {
     m_status->setText(text);
     m_status->setVisible(!text.isEmpty());
+}
+
+void CatalogRow::setViewAllVisible(bool visible)
+{
+    if (m_viewAll)
+        m_viewAll->setVisible(visible);
 }
 
 void CatalogRow::setItems(const QVector<MetaItem>& items)

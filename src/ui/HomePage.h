@@ -23,6 +23,7 @@ public:
 
 signals:
     void openDetailRequested(const MetaItem& meta);
+    void openGridRequested(const QString& title, const QVector<MetaItem>& items);
 
 private:
     void buildHero(); // (re)build the 4-slide hero pool from the loaded catalogs

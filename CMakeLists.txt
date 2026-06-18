@@ -108,6 +108,16 @@ qt_add_executable(Tankoban3
     src/ui/AddonsPage.cpp
     src/ui/HomePage.h
     src/ui/HomePage.cpp
+    src/ui/RowPage.h
+    src/ui/RowPage.cpp
+    src/ui/FlowLayout.h
+    src/ui/FlowLayout.cpp
+    src/ui/GridPage.h
+    src/ui/GridPage.cpp
+    src/ui/PeekHero.h
+    src/ui/PeekHero.cpp
+    src/ui/ShowsPage.h
+    src/ui/ShowsPage.cpp
 )
 
 target_include_directories(Tankoban3 PRIVATE ${CMAKE_SOURCE_DIR}/src)

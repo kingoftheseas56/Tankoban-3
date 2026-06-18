@@ -15,6 +15,7 @@
 class QLabel;
 class QEnterEvent;
 class QMouseEvent;
+class QPropertyAnimation;
 
 namespace tankoban {
 
@@ -28,6 +29,7 @@ public:
 
     static constexpr int kPosterW = 150;
     static constexpr int kPosterH = 225; // 2:3
+    static constexpr int kHoverLift = 8; // Harbor group-hover:-translate-y-2
 
 signals:
     void activated(const MetaItem& item);
@@ -42,6 +44,7 @@ private:
 
     QLabel* m_poster = nullptr;
     QLabel* m_title = nullptr;
+    QPropertyAnimation* m_liftAnim = nullptr;
     QString m_url;
     MetaItem m_item;
     bool m_loadRequested = false;

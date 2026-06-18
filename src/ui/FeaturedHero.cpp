@@ -4,6 +4,7 @@
 
 #include <functional>
 
+#include <QElapsedTimer>
 #include <QEnterEvent>
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
@@ -34,6 +35,13 @@ namespace tankoban {
 namespace {
 
 const QColor kCanvas(0x12, 0x13, 0x17);
+
+// Hero drag gesture (Harbor cinema-hero.tsx): a press becomes a drag past kDragBudge px;
+// on release, a drag past kSnapRatio of the width OR a flick over kFlickVel (px/ms)
+// advances/retreats a slide; otherwise it's a plain click that opens detail.
+constexpr int kDragBudge = 6;       // Harbor DRAG_BUDGE
+constexpr qreal kSnapRatio = 0.18;  // Harbor SNAP_RATIO
+constexpr qreal kFlickVel = 0.45;   // Harbor FLICK_VELOCITY (px/ms)
 
 // App-lifetime shared manager for hero backdrops, with its own on-disk cache so
 // re-launches paint the hero instantly (same approach as PosterCard, separate dir).
@@ -98,10 +106,14 @@ public:
     std::function<void()> onClicked;
     std::function<void()> onHoverEnter;
     std::function<void()> onHoverLeave;
+    std::function<void(int)> onSwipe;  // dir: -1 prev, +1 next (drag/flick on release)
+    std::function<bool()> canDrag;     // true when there is more than one slide
 
 protected:
     void paintEvent(QPaintEvent*) override;
     void mousePressEvent(QMouseEvent*) override;
+    void mouseMoveEvent(QMouseEvent*) override;
+    void mouseReleaseEvent(QMouseEvent*) override;
     void enterEvent(QEnterEvent*) override;
     void leaveEvent(QEvent*) override;
     void resizeEvent(QResizeEvent*) override;
@@ -110,6 +122,16 @@ private:
     void setBackdropUrl(const QString& url, bool animate);
     void rescaleBackdrops();
     QPixmap coverScaled(const QImage& src) const;
+
+    // Drag gesture state (left-press → potential drag; see mouse handlers).
+    bool m_dragActive = false;
+    bool m_dragMoved = false;
+    int m_startX = 0;
+    int m_lastX = 0;
+    qint64 m_lastT = 0;
+    qreal m_vel = 0.0;
+    int m_contentBaseX = 0;
+    QElapsedTimer m_clock;
 
     QLabel* m_rank = nullptr;
     QLabel* m_title = nullptr;
@@ -131,7 +153,8 @@ HeroPanel::HeroPanel(QWidget* parent)
 {
     setObjectName(QStringLiteral("HeroPanel"));
     setCursor(Qt::PointingHandCursor);
-    setMouseTracking(true);
+    // No mouse tracking: move events should fire ONLY while a button is held (the drag),
+    // never on a bare hover — otherwise a missed release makes hovering drag the carousel.
 
     auto* row = new QHBoxLayout(this);
     row->setContentsMargins(56, 56, 56, 56); // Harbor p-14
@@ -149,6 +172,7 @@ HeroPanel::HeroPanel(QWidget* parent)
 
     m_rank = new QLabel(m_content);
     m_rank->setObjectName(QStringLiteral("HeroRank"));
+    m_rank->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     m_rank->setTextFormat(Qt::RichText);
     m_rank->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
     col->addWidget(m_rank, 0, Qt::AlignLeft);
@@ -156,12 +180,14 @@ HeroPanel::HeroPanel(QWidget* parent)
 
     m_title = new QLabel(m_content);
     m_title->setObjectName(QStringLiteral("HeroTitle")); // Fraunces 60px via Theme QSS
+    m_title->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     m_title->setWordWrap(true);
     col->addWidget(m_title);
     col->addSpacing(24);
 
     m_desc = new QLabel(m_content);
     m_desc->setObjectName(QStringLiteral("HeroDesc"));
+    m_desc->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     m_desc->setWordWrap(true);
     m_desc->setMaximumWidth(560); // Harbor max-w-xl
     col->addWidget(m_desc);
@@ -169,6 +195,7 @@ HeroPanel::HeroPanel(QWidget* parent)
 
     m_stats = new QLabel(m_content);
     m_stats->setObjectName(QStringLiteral("HeroStats"));
+    m_stats->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     m_stats->setTextFormat(Qt::RichText);
     col->addWidget(m_stats);
     col->addSpacing(36);
@@ -362,8 +389,76 @@ void HeroPanel::paintEvent(QPaintEvent*)
 
 void HeroPanel::mousePressEvent(QMouseEvent* e)
 {
-    if (e->button() == Qt::LeftButton && onClicked)
-        onClicked();
+    if (e->button() != Qt::LeftButton)
+        return;
+    // Begin a potential drag; whether it's a drag or a click is decided on release.
+    m_dragActive = true;
+    m_dragMoved = false;
+    m_startX = e->pos().x();
+    m_lastX = m_startX;
+    if (!m_clock.isValid())
+        m_clock.start();
+    m_lastT = m_clock.elapsed();
+    m_vel = 0.0;
+    m_contentBaseX = m_content ? m_content->x() : 0;
+}
+
+void HeroPanel::mouseMoveEvent(QMouseEvent* e)
+{
+    // A move with no left button held = a missed release left us stuck; reset so a bare
+    // hover can never drag.
+    if (!(e->buttons() & Qt::LeftButton)) {
+        m_dragActive = false;
+        m_dragMoved = false;
+        return;
+    }
+    if (!m_dragActive)
+        return;
+    const int x = e->pos().x();
+    const int dx = x - m_startX;
+    const qint64 now = m_clock.isValid() ? m_clock.elapsed() : 0;
+    const qint64 dt = now - m_lastT;
+    if (dt > 0) {
+        const qreal inst = qreal(x - m_lastX) / qreal(dt);
+        m_vel = m_vel * 0.6 + inst * 0.4; // Harbor's velocity smoothing
+    }
+    m_lastX = x;
+    m_lastT = now;
+
+    if (!m_dragMoved && qAbs(dx) > kDragBudge && canDrag && canDrag()) {
+        m_dragMoved = true;
+        setCursor(Qt::ClosedHandCursor);
+    }
+    // Live feedback: the content block follows the cursor while dragging. (The backdrop
+    // is a cross-fade layer, not a translate track, so a full whole-slide track-follow
+    // with a neighbour reveal is out of scope here — see report.)
+    if (m_dragMoved && m_content)
+        m_content->move(m_contentBaseX + dx, m_content->y());
+}
+
+void HeroPanel::mouseReleaseEvent(QMouseEvent* e)
+{
+    if (!m_dragActive)
+        return;
+    m_dragActive = false;
+
+    if (m_dragMoved) {
+        const qreal threshold = qreal(qMax(1, width())) * kSnapRatio;
+        const qreal dist = qreal(m_lastX - m_startX);
+        int dir = 0;
+        if (dist < -threshold || m_vel < -kFlickVel)
+            dir = +1; // dragged/flicked left → next slide
+        else if (dist > threshold || m_vel > kFlickVel)
+            dir = -1; // dragged/flicked right → previous slide
+        if (m_content)
+            m_content->move(m_contentBaseX, m_content->y()); // snap content home
+        setCursor((canDrag && canDrag()) ? Qt::OpenHandCursor : Qt::PointingHandCursor);
+        m_dragMoved = false;
+        if (dir != 0 && onSwipe)
+            onSwipe(dir);
+    } else if (e->button() == Qt::LeftButton && onClicked) {
+        onClicked(); // a click with no drag → open detail
+    }
 }
 
 void HeroPanel::enterEvent(QEnterEvent*)
@@ -422,6 +517,13 @@ FeaturedHero::FeaturedHero(QWidget* parent)
         if (m_active >= 0 && m_active < m_slides.size())
             emit openDetailRequested(m_slides[m_active].meta);
     };
+    m_panel->canDrag = [this]() { return m_slides.size() > 1; };
+    m_panel->onSwipe = [this](int dir) {
+        const int n = m_slides.size();
+        if (n < 2)
+            return;
+        goTo(((m_active + dir) % n + n) % n); // wrap, matching auto-advance
+    };
     connect(m_panel->playBtn(), &QPushButton::clicked, this, [this]() {
         if (m_active >= 0 && m_active < m_slides.size())
             emit openDetailRequested(m_slides[m_active].meta);
@@ -447,6 +549,8 @@ void FeaturedHero::setSlides(const QVector<HeroSlide>& slides)
         return;
     }
     showSlide(0, false);
+    // Grab cursor invites the drag when there's more than one slide (Harbor cursor-grab).
+    m_panel->setCursor(m_slides.size() > 1 ? Qt::OpenHandCursor : Qt::PointingHandCursor);
     if (m_slides.size() > 1)
         m_autoTimer->start();
     else
