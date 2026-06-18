@@ -16,6 +16,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPointer>
+#include <QSet>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QUrl>
@@ -55,8 +56,14 @@ MetaItem toMeta(const QJsonObject& o)
     const QString japanese = o.value(QStringLiteral("title_japanese")).toString();
     m.name = !english.isEmpty() ? english : (!title.isEmpty() ? title : japanese);
 
+    // Harbor SERIES_TYPES (jikan.ts:102): TV/OVA/ONA/Special (or missing) -> series;
+    // everything else (Movie, Music, etc.) -> movie. Was Movie-only before.
     const QString type = o.value(QStringLiteral("type")).toString();
-    m.type = (type == QLatin1String("Movie")) ? QStringLiteral("movie") : QStringLiteral("series");
+    static const QSet<QString> kSeriesTypes = {
+        QStringLiteral("TV"), QStringLiteral("OVA"),
+        QStringLiteral("ONA"), QStringLiteral("Special")};
+    const bool isSeries = type.isEmpty() || kSeriesTypes.contains(type);
+    m.type = isSeries ? QStringLiteral("series") : QStringLiteral("movie");
 
     m.poster = pickImage(o.value(QStringLiteral("images")).toObject());
     m.background = m.poster; // Jikan has no wide art; poster doubles as backdrop (v1)

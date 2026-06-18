@@ -16,7 +16,9 @@
 namespace tankoban {
 
 namespace {
-// Harbor anime-rows.tsx SPECS, ordered hero-keys first so the hero fills before the rest.
+// Harbor anime-rows.tsx SPECS, in Harbor's exact order (airing, top-airing, upcoming,
+// top-tv, top-movies, popular, all-time, gems, then era/genre rows). The hero seeds from
+// whichever hero-key rows have backdrops as they arrive — NOT by reordering them first.
 // MAL genre ids: Action 1, Romance 22, Slice of Life 36, Mecha 18, Fantasy 10, Sci-Fi 24,
 // Psychological 40, Horror 14.
 const char* const kGenre = "/anime?genres=%1&order_by=score&sort=desc&min_score=7&sfw=true&page=1";
@@ -66,12 +68,12 @@ AnimePage::AnimePage(QWidget* parent)
          QStringLiteral("/top/anime?filter=airing&page=1"), true},
         {QStringLiteral("upcoming"), QStringLiteral("Upcoming Season"),
          QStringLiteral("/seasons/upcoming?page=1"), true},
-        {QStringLiteral("popular"), QStringLiteral("Most Popular on MAL"),
-         QStringLiteral("/top/anime?filter=bypopularity&page=1"), true},
         {QStringLiteral("top-tv"), QStringLiteral("Top Series on MAL"),
          QStringLiteral("/top/anime?type=tv&page=1"), false},
         {QStringLiteral("top-movies"), QStringLiteral("Top Movies on MAL"),
          QStringLiteral("/top/anime?type=movie&page=1"), false},
+        {QStringLiteral("popular"), QStringLiteral("Most Popular on MAL"),
+         QStringLiteral("/top/anime?filter=bypopularity&page=1"), true},
         {QStringLiteral("all-time"), QStringLiteral("Top Rated on MAL"),
          QStringLiteral("/top/anime?page=1"), false},
         {QStringLiteral("gems"), QStringLiteral("Hidden Gems on MAL"),
