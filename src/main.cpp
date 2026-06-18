@@ -8,12 +8,19 @@
 #include "ui/Theme.h"
 #include "player/PlayerView.h"
 #include "engine/MpvController.h"
+#include "core/torrentstream/LtLinkSmoke.h"
+#include "core/torrentstream/StreamEngine.h"
 
 #include <QApplication>
+#include <QDir>
 #include <QFileInfo>
 #include <QScreen>
+#include <QStandardPaths>
 #include <QTimer>
 #include <QUrl>
+
+#include <cstdio>
+#include <memory>
 
 namespace {
 
@@ -56,6 +63,30 @@ int main(int argc, char** argv)
     app.setApplicationName(QStringLiteral("Tankoban 3"));
     app.setOrganizationName(QStringLiteral("Tankoban"));
     app.setStyleSheet(tankoban::appStyleSheet());
+
+    // Phase 2 (throwaway): prove the vendored libtorrent links + a session
+    // constructs in-process. Env-gated so normal startup is untouched.
+    if (qEnvironmentVariableIsSet("TANKOBAN3_LT_SMOKE")) {
+        tankoban::tstream::ltLinkSmoke();
+        return 0;
+    }
+
+    // Phase 3 (throwaway): run the in-process StreamEngine ALONGSIDE the GUI so a
+    // curl/mpv can hit it while we confirm the UI stays responsive during a piece
+    // wait. Env-gated; kept alive for the whole session in this scope.
+    std::unique_ptr<tankoban::tstream::StreamEngine> streamEngine;
+    if (qEnvironmentVariableIsSet("TANKOBAN3_STREAM_SMOKE")) {
+        const QString cache = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+                              + QStringLiteral("/torrent-stream");
+        QDir().mkpath(cache);
+        streamEngine = std::make_unique<tankoban::tstream::StreamEngine>(cache.toStdString());
+        if (streamEngine->start()) {
+            const std::string url = streamEngine->streamUrl(
+                "08ada5a7a6183aae1e09d831df6748d566095a10", -1, {});
+            std::fprintf(stdout, "STREAM SMOKE URL: %s\n", url.c_str());
+            std::fflush(stdout);
+        }
+    }
 
     // Plan 1 — standalone player demo: TANKOBAN3_PLAYER_DEMO=<url|path> ("1" = default sample).
     if (qEnvironmentVariableIsSet("TANKOBAN3_PLAYER_DEMO")) {
