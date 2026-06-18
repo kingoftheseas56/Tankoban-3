@@ -2,7 +2,10 @@
 
 #include "ui/PosterCard.h"
 
+#include "ui/Icons.h"
+
 #include <QColor>
+#include <QHBoxLayout>
 #include <QEasingCurve>
 #include <QEnterEvent>
 #include <QFont>
@@ -96,6 +99,32 @@ PosterCard::PosterCard(const MetaItem& item, QWidget* parent)
     m_shadow->setColor(QColor(0, 0, 0, 165));
     m_shadow->setEnabled(false);
     m_poster->setGraphicsEffect(m_shadow);
+
+    // MAL score badge (Harbor ScoreStack, pick-card.tsx:163-235) — anime cards only, so
+    // Movies/Shows stay clean (their IMDb badges aren't app-wide yet). A child of the poster
+    // so it rides the hover-lift; bottom-end inset like Harbor's bottom-1.5 end-1.5.
+    const bool isAnimeId = m_item.id.startsWith(QLatin1String("mal:"))
+                           || m_item.id.startsWith(QLatin1String("kitsu:"))
+                           || m_item.id.startsWith(QLatin1String("anilist:"))
+                           || m_item.id.startsWith(QLatin1String("anidb:"));
+    if (isAnimeId && !m_item.imdbRating.isEmpty()) {
+        auto* badge = new QWidget(m_poster);
+        badge->setObjectName(QStringLiteral("ScoreBadge"));
+        badge->setStyleSheet(QStringLiteral(
+            "#ScoreBadge{background:rgba(18,19,23,0.95);border-radius:6px;}"));
+        auto* brow = new QHBoxLayout(badge);
+        brow->setContentsMargins(6, 2, 6, 2); // Harbor px-1.5 py-0.5
+        brow->setSpacing(4);
+        auto* logo = new QLabel(badge);
+        logo->setPixmap(malLogoPixmap(QColor(QStringLiteral("#aab1bd")), 11)); // h-[11px]
+        brow->addWidget(logo);
+        auto* score = new QLabel(m_item.imdbRating, badge);
+        score->setStyleSheet(QStringLiteral("color:#f3f1ea;font-size:10px;font-weight:600;"));
+        brow->addWidget(score);
+        badge->adjustSize();
+        badge->move(kPosterW - badge->width() - 6, kPosterH - badge->height() - 6);
+        badge->raise();
+    }
 }
 
 void PosterCard::ensureLoaded()
