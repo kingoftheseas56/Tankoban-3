@@ -108,22 +108,22 @@ PosterCard::PosterCard(const MetaItem& item, QWidget* parent)
                            || m_item.id.startsWith(QLatin1String("anilist:"))
                            || m_item.id.startsWith(QLatin1String("anidb:"));
     if (isAnimeId && !m_item.imdbRating.isEmpty()) {
-        auto* badge = new QWidget(m_poster);
-        badge->setObjectName(QStringLiteral("ScoreBadge"));
-        badge->setStyleSheet(QStringLiteral(
+        m_badge = new QWidget(m_poster);
+        m_badge->setObjectName(QStringLiteral("ScoreBadge"));
+        m_badge->setStyleSheet(QStringLiteral(
             "#ScoreBadge{background:rgba(18,19,23,0.95);border-radius:6px;}"));
-        auto* brow = new QHBoxLayout(badge);
+        auto* brow = new QHBoxLayout(m_badge);
         brow->setContentsMargins(6, 2, 6, 2); // Harbor px-1.5 py-0.5
         brow->setSpacing(4);
-        auto* logo = new QLabel(badge);
+        auto* logo = new QLabel(m_badge);
         logo->setPixmap(malLogoPixmap(QColor(QStringLiteral("#aab1bd")), 11)); // h-[11px]
         brow->addWidget(logo);
-        auto* score = new QLabel(m_item.imdbRating, badge);
+        auto* score = new QLabel(m_item.imdbRating, m_badge);
         score->setStyleSheet(QStringLiteral("color:#f3f1ea;font-size:10px;font-weight:600;"));
         brow->addWidget(score);
-        badge->adjustSize();
-        badge->move(kPosterW - badge->width() - 6, kPosterH - badge->height() - 6);
-        badge->raise();
+        m_badge->adjustSize();
+        m_badge->move(m_cardW - m_badge->width() - 6, m_cardH - m_badge->height() - 6);
+        m_badge->raise();
     }
 }
 
@@ -153,20 +153,41 @@ void PosterCard::loadPoster(const QString& url)
         QImage img;
         if (!img.loadFromData(reply->readAll()))
             return;
-
-        const qreal dpr = self->devicePixelRatioF();
-        const QSize physical(int(kPosterW * dpr), int(kPosterH * dpr));
-        QImage scaled = img.scaled(physical, Qt::KeepAspectRatioByExpanding,
-                                   Qt::SmoothTransformation);
-        const int x = qMax(0, (scaled.width() - physical.width()) / 2);
-        const int y = qMax(0, (scaled.height() - physical.height()) / 2);
-        scaled = scaled.copy(x, y, qMin(physical.width(), scaled.width()),
-                             qMin(physical.height(), scaled.height()));
-
-        QPixmap pm = QPixmap::fromImage(scaled);
-        pm.setDevicePixelRatio(dpr);
-        self->m_poster->setPixmap(pm);
+        self->m_srcImage = img; // retain for crisp re-crop when the grid resizes the card
+        self->applyPoster();
     });
+}
+
+void PosterCard::applyPoster()
+{
+    if (m_srcImage.isNull())
+        return;
+    const qreal dpr = devicePixelRatioF();
+    const QSize physical(int(m_cardW * dpr), int(m_cardH * dpr));
+    QImage scaled = m_srcImage.scaled(physical, Qt::KeepAspectRatioByExpanding,
+                                      Qt::SmoothTransformation);
+    const int x = qMax(0, (scaled.width() - physical.width()) / 2);
+    const int y = qMax(0, (scaled.height() - physical.height()) / 2);
+    scaled = scaled.copy(x, y, qMin(physical.width(), scaled.width()),
+                         qMin(physical.height(), scaled.height()));
+    QPixmap pm = QPixmap::fromImage(scaled);
+    pm.setDevicePixelRatio(dpr);
+    m_poster->setPixmap(pm);
+}
+
+void PosterCard::setCardWidth(int width)
+{
+    if (width <= 0 || width == m_cardW)
+        return;
+    m_cardW = width;
+    m_cardH = width * 3 / 2; // 2:3 portrait
+    setFixedWidth(m_cardW);
+    m_poster->setFixedSize(m_cardW, m_cardH);
+    m_title->setFixedWidth(m_cardW);
+    applyPoster(); // re-crop the retained source to the new size (crisp, no upscale blur)
+    if (m_badge)
+        m_badge->move(m_cardW - m_badge->width() - 6, m_cardH - m_badge->height() - 6);
+    updateGeometry();
 }
 
 void PosterCard::enterEvent(QEnterEvent*)

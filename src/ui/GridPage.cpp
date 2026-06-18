@@ -147,6 +147,24 @@ void GridPage::appendCards(const QVector<MetaItem>& items)
     }
     m_count->setText(QString::number(m_cards.size())
                      + (m_cards.size() == 1 ? QStringLiteral(" title") : QStringLiteral(" titles")));
+    applyGridCardWidth(); // new cards fill the row like the rest
+}
+
+void GridPage::applyGridCardWidth()
+{
+    if (m_cards.isEmpty())
+        return;
+    const int gap = 16;                                  // FlowLayout hSpacing
+    const int avail = m_scroll->viewport()->width() - 96; // content col margins (48 each side)
+    if (avail <= 0)
+        return;
+    const int minW = 150; // Harbor minmax(150px,1fr)
+    const int cols = qMax(1, (avail + gap) / (minW + gap));
+    const int cardW = qMax(minW, (avail - (cols - 1) * gap) / cols);
+    for (PosterCard* c : m_cards)
+        c->setCardWidth(cardW);
+    m_flow->invalidate();
+    m_grid->updateGeometry();
 }
 
 void GridPage::clearCards()
@@ -211,12 +229,13 @@ void GridPage::onGridPage(const QString& key, const QVector<MetaItem>& items)
 void GridPage::showEvent(QShowEvent* e)
 {
     QWidget::showEvent(e);
-    QTimer::singleShot(0, this, [this]() { updateVisible(); checkLoadMore(); });
+    QTimer::singleShot(0, this, [this]() { applyGridCardWidth(); updateVisible(); checkLoadMore(); });
 }
 
 void GridPage::resizeEvent(QResizeEvent* e)
 {
     QWidget::resizeEvent(e);
+    applyGridCardWidth(); // re-fill the row at the new width (cards stretch, Harbor-style)
     updateVisible();
     checkLoadMore();
 }

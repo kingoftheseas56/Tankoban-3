@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <QImage>
 #include <QString>
 #include <QWidget>
 
@@ -28,6 +29,10 @@ public:
     // Fetch the cover the first time the card scrolls into view (idempotent).
     void ensureLoaded();
 
+    // Grid uses this to make cards fill the column (Harbor minmax(150px,1fr)). Rows leave it
+    // at the default. Re-crops the retained source so resizing stays crisp.
+    void setCardWidth(int width);
+
     static constexpr int kPosterW = 144;  // Harbor default min card width
     static constexpr int kPosterH = 216;  // 2:3
     static constexpr int kHoverLift = 8;  // Harbor group-hover:-translate-y-2
@@ -42,12 +47,17 @@ protected:
 
 private:
     void loadPoster(const QString& url);
+    void applyPoster(); // crop the retained source image to the current card size
 
     QLabel* m_poster = nullptr;
     QLabel* m_title = nullptr;
+    QWidget* m_badge = nullptr; // MAL score badge (repositioned on resize)
     QPropertyAnimation* m_liftAnim = nullptr;
     QGraphicsDropShadowEffect* m_shadow = nullptr; // soft drop shadow, enabled only on hover
     QString m_url;
+    QImage m_srcImage;          // retained source cover for crisp re-crop on width change
+    int m_cardW = kPosterW;
+    int m_cardH = kPosterH;
     MetaItem m_item;
     bool m_loadRequested = false;
 };

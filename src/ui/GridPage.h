@@ -50,7 +50,8 @@ protected:
 
 private:
     void clearCards();
-    void updateVisible();  // lazy-load covers in/near the vertical viewport
+    void updateVisible();      // lazy-load covers in/near the vertical viewport
+    void applyGridCardWidth(); // size cards to fill the row (Harbor minmax(150px,1fr))
     void appendCards(const QVector<MetaItem>& items);
     void checkLoadMore();  // fetch the next grid page when scrolled near the bottom
     void onGridPage(const QString& key, const QVector<MetaItem>& items);
