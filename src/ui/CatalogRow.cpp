@@ -60,8 +60,9 @@ CatalogRow::CatalogRow(const QString& title, QWidget* parent)
 
     col->addLayout(header);
 
-    m_status = new QLabel(QStringLiteral("Loading…"), this);
+    m_status = new QLabel(this); // empty until setStatus; rows stay hidden until first data
     m_status->setObjectName(QStringLiteral("RowStatus"));
+    m_status->hide();
     col->addWidget(m_status);
 
     m_scroll = new QScrollArea(this);
@@ -147,8 +148,8 @@ void CatalogRow::maybeEmitEndReached()
     auto* sb = m_scroll->horizontalScrollBar();
     if (sb->maximum() <= sb->minimum())
         return;
-    // Harbor measureScroll: fire when the remaining scroll is small (≈ < 800px).
-    if (sb->maximum() - sb->value() < int(m_scroll->viewport()->width() * 0.6))
+    // Harbor measureScroll: fire when the remaining scroll is < 800px.
+    if (sb->maximum() - sb->value() < 800)
         emit endReached();
 }
 

@@ -380,6 +380,9 @@ void JikanClient::doRequest(const Pending& job)
 {
     QNetworkRequest req((QUrl(kBase + job.path)));
     req.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Tankoban3/0.1"));
+    // Harbor aborts Jikan queries (12s normal / 8s raw gems, jikan.ts:324/480) so one hung
+    // request can't stall the serialized queue — a timeout fails the reply like any error.
+    req.setTransferTimeout(job.gemsPage > 0 ? 8000 : 12000);
 
     QNetworkReply* reply = m_nam->get(req);
     QPointer<JikanClient> self(this);

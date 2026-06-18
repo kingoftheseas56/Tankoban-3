@@ -117,6 +117,7 @@ AnimePage::AnimePage(QWidget* parent)
         connect(row, &CatalogRow::viewAllRequested, this,
                 [this, key, title]() { emit openGridRequested(title, m_items.value(key)); });
         connect(row, &CatalogRow::endReached, this, [this, key]() { loadMore(key); });
+        row->hide(); // hidden until its first data lands (no visible "Loading…" shelves)
         rowsCol->addWidget(row);
         m_rowWidgets.push_back(row);
     }
@@ -182,13 +183,16 @@ void AnimePage::onRow(const QString& key, const QVector<MetaItem>& items)
     m_rowPage[key] = 1;
     m_rowHasMore[key] = (key != QLatin1String("gems")) && items.size() >= kRowMinVisible;
 
-    // Populate the shelf; hide if too thin.
-    QVector<MetaItem> kept = items.size() > 30 ? items.mid(0, 30) : items;
-    if (kept.size() >= 4) {
-        m_rowWidgets.at(idx)->setItems(kept);
-        m_rowWidgets.at(idx)->show();
-    } else {
-        m_rowWidgets.at(idx)->hide();
+    // Populate the shelf. Harbor skips top-airing (TOP_PICKS_KEY) from normal row render —
+    // it's fetched only to seed the hero — and hides a ready row only when it's empty.
+    if (key != QLatin1String("top-airing")) {
+        if (!items.isEmpty()) {
+            QVector<MetaItem> kept = items.size() > 30 ? items.mid(0, 30) : items;
+            m_rowWidgets.at(idx)->setItems(kept);
+            m_rowWidgets.at(idx)->show();
+        } else {
+            m_rowWidgets.at(idx)->hide();
+        }
     }
 
     // Hero pool: first ~6 backdrop-bearing titles from the hero-key rows (which load first).
