@@ -16,6 +16,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPointer>
+#include <QRegularExpression>
 #include <QSet>
 #include <QStandardPaths>
 #include <QTimer>
@@ -250,6 +251,74 @@ void schedulePersist()
     }
     timer->start(); // restart resets the countdown -> debounce
 }
+
+// ---- Hidden Gems (Harbor jikanUnderratedGems, jikan.ts:462-536) ---------------------
+constexpr double kGemMemberCeiling = 350000.0; // GEM_MEMBER_CEILING
+constexpr double kGemScoredByFloor = 4000.0;   // GEM_SCORED_BY_FLOOR
+const QString kGemsCacheKey = QStringLiteral("__gems__?page=1");
+
+QString gemsRawPath(int page)
+{
+    return QStringLiteral(
+               "/anime?order_by=members&sort=asc&min_score=7.8&sfw=true&type=tv&page=%1")
+        .arg(page);
+}
+
+QHash<QString, QVector<QJsonObject>>& gemsAccum()
+{
+    static QHash<QString, QVector<QJsonObject>> a;
+    return a;
+}
+
+bool isSequelTitle(const QJsonObject& o)
+{
+    static const QRegularExpression rx(
+        QStringLiteral("\\b(?:1st|2nd|3rd|4th|5th|6th|7th|8th|9th|10th|11th|12th|Final|Last|"
+                       "Second|Third|Fourth|Fifth|Sixth|Seventh|Eighth|Ninth|Tenth)\\s+"
+                       "(?:Season|Cour|Part)\\b|\\bSeason\\s+\\d+\\b|\\bS\\d+\\b|"
+                       "\\b(?:Part|Cour)\\s+\\d+\\b|\\s(?:II|III|IV|V|VI|VII|VIII|IX|X)$"),
+        QRegularExpression::CaseInsensitiveOption);
+    for (const QString& key : {QStringLiteral("title_english"), QStringLiteral("title"),
+                               QStringLiteral("title_japanese")}) {
+        const QString t = o.value(key).toString();
+        if (!t.isEmpty() && rx.match(t).hasMatch())
+            return true;
+    }
+    return false;
+}
+
+// Dedupe by mal_id, drop too-popular / too-thinly-scored / sequel titles, sort by score desc,
+// then map to MetaItem (Harbor jikanUnderratedGems filter, jikan.ts:521-535).
+QVector<MetaItem> finalizeGems(const QVector<QJsonObject>& raw)
+{
+    QSet<qint64> seen;
+    QVector<QJsonObject> filtered;
+    for (const QJsonObject& o : raw) {
+        const qint64 id = qint64(o.value(QStringLiteral("mal_id")).toDouble());
+        if (id == 0 || seen.contains(id))
+            continue;
+        if (o.value(QStringLiteral("members")).toDouble() > kGemMemberCeiling)
+            continue;
+        if (o.value(QStringLiteral("scored_by")).toDouble() < kGemScoredByFloor)
+            continue;
+        if (isSequelTitle(o))
+            continue;
+        seen.insert(id);
+        filtered.push_back(o);
+    }
+    std::sort(filtered.begin(), filtered.end(), [](const QJsonObject& a, const QJsonObject& b) {
+        return a.value(QStringLiteral("score")).toDouble()
+             > b.value(QStringLiteral("score")).toDouble();
+    });
+    QVector<MetaItem> metas;
+    metas.reserve(filtered.size());
+    for (const QJsonObject& o : filtered) {
+        MetaItem m = toMeta(o);
+        if (!m.poster.isEmpty() && !m.id.isEmpty())
+            metas.push_back(m);
+    }
+    return metas;
+}
 } // namespace
 
 JikanClient::JikanClient(QObject* parent)
@@ -278,6 +347,24 @@ void JikanClient::fetchRow(const QString& rowKey, const QString& path)
     }
 
     m_queue.enqueue({rowKey, path, 0});
+    pump();
+}
+
+void JikanClient::fetchGems(const QString& rowKey)
+{
+    loadCatalogOnce();
+    const auto it = catalogCache().constFind(kGemsCacheKey);
+    if (it != catalogCache().constEnd() && nowMs() - it->t < kCacheTtlMs) {
+        const QVector<MetaItem> metas = it->metas;
+        QPointer<JikanClient> self(this);
+        QTimer::singleShot(0, this, [self, rowKey, metas]() {
+            if (self)
+                emit self->rowReady(rowKey, metas);
+        });
+        return;
+    }
+    gemsAccum()[rowKey].clear();
+    m_queue.enqueue({rowKey, gemsRawPath(1), 0, 1}); // raw page 1; page 2 chained on reply
     pump();
 }
 
@@ -345,6 +432,33 @@ void JikanClient::doRequest(const Pending& job)
 
         const QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
         const QJsonArray data = doc.object().value(QStringLiteral("data")).toArray();
+
+        // Hidden Gems: accumulate raw page 1, chain page 2, then filter+map on the pair.
+        if (job.gemsPage > 0) {
+            QVector<QJsonObject>& accum = gemsAccum()[job.rowKey];
+            for (const QJsonValue& v : data)
+                accum.push_back(v.toObject());
+            if (job.gemsPage == 1) {
+                Pending p2 = job;
+                p2.path = gemsRawPath(2);
+                p2.attempt = 0;
+                p2.gemsPage = 2;
+                self->m_queue.prepend(p2); // page 2 goes next, keeping the pair adjacent
+                self->m_busy = false;
+                QTimer::singleShot(kMinIntervalMs, self, [self]() {
+                    if (self)
+                        self->pump();
+                });
+                return;
+            }
+            const QVector<MetaItem> gems = finalizeGems(gemsAccum().take(job.rowKey));
+            catalogCache().insert(kGemsCacheKey, CacheEntry{gems, nowMs()});
+            schedulePersist();
+            emit self->rowReady(job.rowKey, gems);
+            scheduleNext();
+            return;
+        }
+
         QVector<MetaItem> items;
         items.reserve(data.size());
         for (const QJsonValue& v : data) {

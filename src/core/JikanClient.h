@@ -28,6 +28,10 @@ public:
     // path = the Jikan path after the base, e.g. "/seasons/now?page=1".
     void fetchRow(const QString& rowKey, const QString& path);
 
+    // Hidden Gems (Harbor jikanUnderratedGems): gathers two raw pages, filters by member
+    // ceiling / scored-by floor / sequel exclusion, sorts by score, then maps. Emits rowReady.
+    void fetchGems(const QString& rowKey);
+
 signals:
     void rowReady(const QString& rowKey, const QVector<tankoban::MetaItem>& items);
     void rowFailed(const QString& rowKey, const QString& error);
@@ -37,6 +41,7 @@ private:
         QString rowKey;
         QString path;
         int attempt = 0;
+        int gemsPage = 0; // 0 = normal row; 1/2 = the two raw pages of a Hidden Gems fetch
     };
 
     void pump();

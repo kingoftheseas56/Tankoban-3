@@ -135,8 +135,12 @@ AnimePage::AnimePage(QWidget* parent)
                 m_rowWidgets.at(i)->hide();
     });
 
-    for (const RowDef& def : m_defs)
-        m_jikan->fetchRow(def.key, def.path);
+    for (const RowDef& def : m_defs) {
+        if (def.key == QLatin1String("gems"))
+            m_jikan->fetchGems(def.key); // Harbor's 2-page underrated-gems fetch + filter
+        else
+            m_jikan->fetchRow(def.key, def.path);
+    }
 }
 
 void AnimePage::onRow(const QString& key, const QVector<MetaItem>& items)
