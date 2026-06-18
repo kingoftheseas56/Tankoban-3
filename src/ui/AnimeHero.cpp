@@ -8,6 +8,7 @@
 #include <QSize>
 #include <QEasingCurve>
 #include <QEnterEvent>
+#include <QFont>
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -119,29 +120,38 @@ AnimeHero::AnimeHero(QWidget* parent)
     auto* brow = new QHBoxLayout(btns);
     brow->setContentsMargins(0, 6, 0, 0);
     brow->setSpacing(12);
-    // Harbor anime hero: a warm-orange filled Start Watching + a compact bordered bookmark.
-    m_start = new QPushButton(QStringLiteral("▶  Start Watching"), btns);
+    // Harbor anime hero (anime-hero.tsx:188-217): solid-accent uppercase Start Watching with
+    // a filled Play icon, plus a compact bordered bookmark.
+    m_start = new QPushButton(QStringLiteral("START WATCHING"), btns);
     m_start->setObjectName(QStringLiteral("AnimeStartBtn"));
     m_start->setCursor(Qt::PointingHandCursor);
-    m_start->setFixedHeight(48);
+    m_start->setFixedHeight(44);
+    m_start->setIcon(navIcon(QStringLiteral("play"), QColor(QStringLiteral("#121317")), 17, true));
+    m_start->setIconSize(QSize(17, 17));
+    {
+        QFont f = m_start->font(); // QSS has no letter-spacing; set Harbor's tracking on the font
+        f.setPixelSize(13);
+        f.setWeight(QFont::Bold);
+        f.setLetterSpacing(QFont::AbsoluteSpacing, 1.0); // ~tracking-[0.08em] @ 13px
+        m_start->setFont(f);
+    }
     m_start->setStyleSheet(QStringLiteral(
-        "#AnimeStartBtn{border:none;border-radius:8px;padding:0 26px;font-size:15px;"
-        "font-weight:700;color:#1a1206;"
-        "background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #efab6b,stop:1 #e2893c);}"
-        "#AnimeStartBtn:hover{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,"
-        "stop:0 #f4b67b,stop:1 #e8934a);}"));
+        "#AnimeStartBtn{border:none;border-radius:6px;padding:0 20px;color:#121317;"
+        "background:#e8b923;}"                        // Harbor bg-accent (gold) / text-canvas
+        "#AnimeStartBtn:hover{background:#f0c63a;}")); // ~bg-accent/90
 
     m_save = new QPushButton(btns);
     m_save->setObjectName(QStringLiteral("AnimeSaveBtn"));
-    m_save->setCursor(Qt::PointingHandCursor);
-    m_save->setFixedSize(48, 48);
+    m_save->setFixedSize(44, 44);
     m_save->setIcon(navIcon(QStringLiteral("bookmark"), QColor(QStringLiteral("#f3f1ea")), 18));
     m_save->setIconSize(QSize(18, 18));
+    // V1A: keep the bookmark visible (Harbor's two-button row) but disabled — no Library
+    // backend to persist to yet, so no fake "saved" toggle (Hemanth 2026-06-18). Re-wire then.
+    m_save->setEnabled(false);
     m_save->setStyleSheet(QStringLiteral(
-        "#AnimeSaveBtn{border:1px solid rgba(255,255,255,0.22);border-radius:8px;"
-        "background:rgba(18,19,23,0.55);}"
-        "#AnimeSaveBtn:hover{background:rgba(45,51,63,0.85);}"
-        "#AnimeSaveBtn[saved=\"true\"]{border-color:#e8b923;background:rgba(232,185,35,0.16);}"));
+        "#AnimeSaveBtn{border:1px solid rgba(255,255,255,0.12);border-radius:6px;"
+        "background:rgba(26,29,36,0.45);}"          // Harbor border-edge / bg-elevated/45
+        "#AnimeSaveBtn:disabled{color:#f3f1ea;}"));  // legible, not greyed
 
     brow->addWidget(m_start);
     brow->addWidget(m_save);
@@ -153,14 +163,7 @@ AnimeHero::AnimeHero(QWidget* parent)
         if (i >= 0)
             emit openDetailRequested(m_slides[i]); // Harbor AnimeHero Start Watching -> detail
     });
-    connect(m_save, &QPushButton::clicked, this, [this]() {
-        const bool now = !m_save->property("saved").toBool();
-        m_save->setProperty("saved", now);
-        m_save->setIcon(navIcon(QStringLiteral("bookmark"),
-                                QColor(now ? QStringLiteral("#e8b923") : QStringLiteral("#f3f1ea")), 18));
-        m_save->style()->unpolish(m_save);
-        m_save->style()->polish(m_save);
-    });
+    // Save is intentionally inert in V1A (disabled above) — no fake-persistence toggle.
 
     m_prevArrow = makeArrow(this, QStringLiteral("‹"));
     m_nextArrow = makeArrow(this, QStringLiteral("›"));
@@ -169,9 +172,14 @@ AnimeHero::AnimeHero(QWidget* parent)
 
     m_dotsRow = new QWidget(this);
     m_dotsRow->setAttribute(Qt::WA_TranslucentBackground, true);
+    // Harbor dots (anime-hero.tsx:246-257): active = gold + wide, inactive = ink-subtle/35.
+    // Own #AnimeDot rule so Home's shared #HeroDot is untouched.
+    m_dotsRow->setStyleSheet(QStringLiteral(
+        "QPushButton#AnimeDot{border:none;border-radius:3px;background:rgba(139,144,155,0.35);}"
+        "QPushButton#AnimeDot[active=\"true\"]{background:#e8b923;}"));
     m_dotsLayout = new QHBoxLayout(m_dotsRow);
     m_dotsLayout->setContentsMargins(0, 0, 0, 0);
-    m_dotsLayout->setSpacing(10);
+    m_dotsLayout->setSpacing(6); // Harbor gap-1.5
 
     m_autoTimer = new QTimer(this);
     m_autoTimer->setInterval(14000); // Harbor anime-hero ROTATE_MS
@@ -229,11 +237,6 @@ void AnimeHero::showSlide(int i, bool animate)
         desc = desc.left(259).trimmed() + QStringLiteral("…");
     m_desc->setText(desc);
     m_desc->setVisible(!desc.isEmpty());
-
-    m_save->setProperty("saved", false);
-    m_save->setIcon(navIcon(QStringLiteral("bookmark"), QColor(QStringLiteral("#f3f1ea")), 18));
-    m_save->style()->unpolish(m_save);
-    m_save->style()->polish(m_save);
 
     if (animate) {
         auto* fx = new QPropertyAnimation(m_contentFx, "opacity", this);
@@ -414,7 +417,7 @@ void AnimeHero::rebuildDots()
         return;
     for (int i = 0; i < m_slides.size(); ++i) {
         auto* dot = new QPushButton(m_dotsRow);
-        dot->setObjectName(QStringLiteral("HeroDot"));
+        dot->setObjectName(QStringLiteral("AnimeDot"));
         dot->setCursor(Qt::PointingHandCursor);
         dot->setFixedHeight(6);
         connect(dot, &QPushButton::clicked, this, [this, i]() { goTo(i); });
@@ -429,7 +432,7 @@ void AnimeHero::syncDots()
     for (int i = 0; i < m_dots.size(); ++i) {
         QPushButton* d = m_dots[i];
         const bool active = (i == m_active);
-        d->setFixedWidth(active ? 40 : 6);
+        d->setFixedWidth(active ? 40 : 24); // Harbor active w-10 / inactive w-6
         d->setProperty("active", active);
         d->style()->unpolish(d);
         d->style()->polish(d);

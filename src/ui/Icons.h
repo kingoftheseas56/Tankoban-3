@@ -46,6 +46,8 @@ inline QString navSvgInner(const QString& id)
         return QStringLiteral("<path d='m9 18 6-6-6-6'/>");
     if (id == QLatin1String("bookmark"))
         return QStringLiteral("<path d='m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z'/>");
+    if (id == QLatin1String("play")) // lucide Play (filled via navIcon's `filled` flag)
+        return QStringLiteral("<polygon points='6 3 20 12 6 21 6 3'/>");
     // Harbor's CollapseToggle glyphs (lucide PanelLeftClose / PanelLeftOpen).
     if (id == QLatin1String("panel-collapse"))
         return QStringLiteral("<rect width='18' height='18' x='3' y='3' rx='2'/>"
@@ -56,12 +58,15 @@ inline QString navSvgInner(const QString& id)
     return QString();
 }
 
-inline QIcon navIcon(const QString& id, const QColor& color, int px = 22)
+inline QIcon navIcon(const QString& id, const QColor& color, int px = 22, bool filled = false)
 {
+    // filled = solid fill (e.g. the Play triangle); default = lucide line style (stroked).
     const QString svg = QStringLiteral(
-        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' "
-        "stroke='%1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>%2</svg>")
-        .arg(color.name(), navSvgInner(id));
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%1' "
+        "stroke='%2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>%3</svg>")
+        .arg(filled ? color.name() : QStringLiteral("none"),
+             filled ? QStringLiteral("none") : color.name(),
+             navSvgInner(id));
 
     QSvgRenderer renderer(svg.toUtf8());
     const int hp = px * 2; // render at 2x for crisp HiDPI
