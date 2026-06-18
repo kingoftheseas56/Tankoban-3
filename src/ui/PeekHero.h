@@ -14,6 +14,7 @@
 
 #include <QHash>
 #include <QImage>
+#include <QPixmap>
 #include <QSet>
 #include <QVector>
 #include <QWidget>
@@ -46,6 +47,7 @@ public:
 
 signals:
     void openDetailRequested(const MetaItem& meta);
+    void playRequested(const MetaItem& meta);
 
 protected:
     void paintEvent(QPaintEvent*) override;
@@ -83,7 +85,8 @@ private:
     qreal m_vel = 0.0;
     QElapsedTimer m_clock;
 
-    QHash<QString, QImage> m_bg; // meta id -> loaded backdrop
+    QHash<QString, QImage> m_bg;       // meta id -> loaded backdrop (full-res)
+    QHash<QString, QPixmap> m_pmCache; // "id|WxH" -> cover-scaled pixmap (drag-smooth blits)
     QSet<QString> m_bgRequested;
     QNetworkAccessManager* m_nam = nullptr;
 

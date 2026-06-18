@@ -132,6 +132,7 @@ ShowsPage::ShowsPage(QWidget* parent)
     // PeekHero (Shows landscape carousel — NOT the Movies billboard).
     m_hero = new PeekHero(page);
     connect(m_hero, &PeekHero::openDetailRequested, this, &ShowsPage::openDetailRequested);
+    connect(m_hero, &PeekHero::playRequested, this, &ShowsPage::playRequested);
     col->addWidget(m_hero);
 
     // Cinemeta series shelves — Harbor's no-key order: Top Series, then genres.
@@ -205,7 +206,9 @@ void ShowsPage::render()
     if (m_hero && !heroSlides.isEmpty())
         m_hero->setSlides(heroSlides);
 
-    // Shelves, deduped in order against the hero + earlier shelves; hide rows under 4.
+    // Shelves: dedup against the HERO ONLY (Harbor shows.tsx restRows seeds `seen` with hero
+    // ids and does NOT add row items to it), so the same series may recur across genre rows —
+    // unlike Movies, which globally de-dupes. Hide rows left under 4.
     for (int i = 0; i < m_defs.size(); ++i) {
         QVector<MetaItem> items = m_items.value(m_defs.at(i).key);
         if (items.size() > 30)
@@ -213,9 +216,8 @@ void ShowsPage::render()
         QVector<MetaItem> kept;
         kept.reserve(items.size());
         for (const MetaItem& m : items) {
-            if (m.id.isEmpty() || seen.contains(m.id))
+            if (m.id.isEmpty() || seen.contains(m.id)) // `seen` holds only the hero ids
                 continue;
-            seen.insert(m.id);
             kept.push_back(m);
         }
         if (kept.size() >= 4) {

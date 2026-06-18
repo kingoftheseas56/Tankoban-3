@@ -92,14 +92,17 @@ QLabel#Poster {
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 6px;
 }
-QWidget#PosterCard[hover="true"] QLabel#Poster { border: 2px solid #e8b923; }
-QLabel#PosterTitle { color: #aab1bd; font-size: 12px; }
+/* Harbor PickCard hover = lift + soft shadow + subtle ring (NOT a gold accent). The
+   blurred shadow is a QGraphicsDropShadowEffect on the poster (PosterCard); here we just
+   firm up the inset ring on hover. Gold is reserved for true Harbor accents, not cards. */
+QWidget#PosterCard[hover="true"] QLabel#Poster { border: 1px solid rgba(255,255,255,0.22); }
+QLabel#PosterTitle { color: #f3f1ea; font-size: 13px; }
 
 /* ── Row hover edge-arrows (Harbor: hidden scrollbar, arrows on hover) ── */
 QPushButton#RowArrow {
-    background: rgba(18,19,23,0.86);
+    background: rgba(18,19,23,0.90);
     border: 1px solid rgba(255,255,255,0.14);
-    border-radius: 18px;
+    border-radius: 22px;
 }
 QPushButton#RowArrow:hover { background: rgba(45,51,63,0.96); }
 

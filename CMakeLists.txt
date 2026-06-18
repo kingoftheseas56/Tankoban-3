@@ -110,6 +110,8 @@ qt_add_executable(Tankoban3
     src/ui/HomePage.cpp
     src/ui/RowPage.h
     src/ui/RowPage.cpp
+    src/ui/CinemaHero.h
+    src/ui/CinemaHero.cpp
     src/ui/FlowLayout.h
     src/ui/FlowLayout.cpp
     src/ui/GridPage.h

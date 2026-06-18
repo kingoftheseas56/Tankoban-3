@@ -87,9 +87,9 @@ CatalogRow::CatalogRow(const QString& title, QWidget* parent)
         auto* b = new QPushButton(this);
         b->setObjectName(QStringLiteral("RowArrow"));
         b->setCursor(Qt::PointingHandCursor);
-        b->setFixedSize(36, 36);
-        b->setIcon(navIcon(chev, QColor(QStringLiteral("#f3f1ea")), 18));
-        b->setIconSize(QSize(18, 18));
+        b->setFixedSize(44, 44); // Harbor: 44px circular edge buttons
+        b->setIcon(navIcon(chev, QColor(QStringLiteral("#f3f1ea")), 20));
+        b->setIconSize(QSize(20, 20));
         b->hide();
         connect(b, &QPushButton::clicked, this, [this, dir]() { scrollByPage(dir); });
         return b;
@@ -152,9 +152,9 @@ void CatalogRow::updateArrows()
         return;
     auto* sb = m_scroll->horizontalScrollBar();
     const bool scrollable = sb->maximum() > sb->minimum();
-    const int ay = m_scroll->y() + PosterCard::kPosterH / 2 - 18;
-    m_leftArrow->move(m_scroll->x() + 6, ay);
-    m_rightArrow->move(m_scroll->x() + m_scroll->width() - 36 - 6, ay);
+    const int ay = m_scroll->y() + PosterCard::kPosterH / 2 - 22;
+    m_leftArrow->move(m_scroll->x() + 8, ay);
+    m_rightArrow->move(m_scroll->x() + m_scroll->width() - 44 - 8, ay);
     m_leftArrow->setVisible(m_hovered && scrollable && sb->value() > sb->minimum());
     m_rightArrow->setVisible(m_hovered && scrollable && sb->value() < sb->maximum());
     m_leftArrow->raise();

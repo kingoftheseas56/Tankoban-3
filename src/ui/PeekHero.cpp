@@ -15,6 +15,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPaintEvent>
+#include <QPixmap>
 #include <QPointer>
 #include <QPushButton>
 #include <QResizeEvent>
@@ -101,12 +102,15 @@ PeekHero::PeekHero(QWidget* parent)
     brow->addStretch();
     ocol->addWidget(btns);
 
-    auto openActive = [this]() {
+    // Harbor split: Play opens the Picker; Episodes (and a bare card click) opens Detail.
+    connect(m_play, &QPushButton::clicked, this, [this]() {
+        if (m_active >= 0 && m_active < m_slides.size())
+            emit playRequested(m_slides[m_active]);
+    });
+    connect(m_episodes, &QPushButton::clicked, this, [this]() {
         if (m_active >= 0 && m_active < m_slides.size())
             emit openDetailRequested(m_slides[m_active]);
-    };
-    connect(m_play, &QPushButton::clicked, this, openActive);
-    connect(m_episodes, &QPushButton::clicked, this, openActive);
+    });
 
     // Dot pills below the track.
     m_dotsRow = new QWidget(this);
@@ -174,18 +178,26 @@ void PeekHero::drawCard(QPainter& p, const MetaItem& m, const QRect& r, qreal op
     p.setOpacity(opacity);
 
     const QImage img = m_bg.value(m.id);
-    if (!img.isNull()) {
-        const qreal ar = r.width() / qreal(qMax(1, r.height()));
-        const qreal iar = img.width() / qreal(qMax(1, img.height()));
-        QRect src;
-        if (iar > ar) {
-            const int sw = qRound(img.height() * ar);
-            src = QRect((img.width() - sw) / 2, 0, sw, img.height());
-        } else {
-            const int sh = qRound(img.width() / ar);
-            src = QRect(0, (img.height() - sh) / 2, img.width(), sh);
+    if (!img.isNull() && r.width() > 0 && r.height() > 0) {
+        // Cover-scale ONCE per (id, size) and cache the pixmap. During a drag the card size
+        // is constant, so every frame is a cheap blit instead of a full image rescale — this
+        // is what makes the drag smooth (cache cleared on resize / new backdrop).
+        const QString key = m.id + QLatin1Char('|') + QString::number(r.width())
+                            + QLatin1Char('x') + QString::number(r.height());
+        QPixmap pm = m_pmCache.value(key);
+        if (pm.isNull()) {
+            const qreal dpr = devicePixelRatioF();
+            const QSize phys(int(r.width() * dpr), int(r.height() * dpr));
+            QImage scaled = img.scaled(phys, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+            const int sx = qMax(0, (scaled.width() - phys.width()) / 2);
+            const int sy = qMax(0, (scaled.height() - phys.height()) / 2);
+            scaled = scaled.copy(sx, sy, qMin(phys.width(), scaled.width()),
+                                 qMin(phys.height(), scaled.height()));
+            pm = QPixmap::fromImage(scaled);
+            pm.setDevicePixelRatio(dpr);
+            m_pmCache.insert(key, pm);
         }
-        p.drawImage(r, img, src);
+        p.drawPixmap(r.topLeft(), pm);
     } else {
         p.fillRect(r, QColor(0x1a, 0x1d, 0x24));
     }
@@ -259,6 +271,7 @@ void PeekHero::loadBg(int index)
         if (!img.loadFromData(reply->readAll()))
             return;
         self->m_bg.insert(id, img);
+        self->m_pmCache.clear(); // new backdrop -> rebuild cached scales
         self->update();
     });
 }
@@ -368,6 +381,7 @@ void PeekHero::positionChildren()
 void PeekHero::resizeEvent(QResizeEvent* e)
 {
     QWidget::resizeEvent(e);
+    m_pmCache.clear(); // card sizes changed -> drop stale scaled pixmaps
     positionChildren();
 }
 

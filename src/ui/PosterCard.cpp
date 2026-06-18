@@ -2,8 +2,10 @@
 
 #include "ui/PosterCard.h"
 
+#include <QColor>
 #include <QEasingCurve>
 #include <QEnterEvent>
+#include <QGraphicsDropShadowEffect>
 #include <QImage>
 #include <QLabel>
 #include <QMouseEvent>
@@ -74,6 +76,16 @@ PosterCard::PosterCard(const MetaItem& item, QWidget* parent)
     m_liftAnim = new QPropertyAnimation(m_poster, "pos", this);
     m_liftAnim->setDuration(260);
     m_liftAnim->setEasingCurve(QEasingCurve::OutCubic);
+
+    // Harbor's hover shadow (deeper drop shadow under the lifted poster). Kept DISABLED at
+    // rest — a disabled QGraphicsEffect renders nothing and costs nothing, so only the
+    // hovered card (1-2 at a time) pays for it (safe on the UHD 620).
+    m_shadow = new QGraphicsDropShadowEffect(this);
+    m_shadow->setBlurRadius(28);
+    m_shadow->setOffset(0, 12);
+    m_shadow->setColor(QColor(0, 0, 0, 165));
+    m_shadow->setEnabled(false);
+    m_poster->setGraphicsEffect(m_shadow);
 }
 
 void PosterCard::ensureLoaded()
@@ -120,9 +132,11 @@ void PosterCard::loadPoster(const QString& url)
 
 void PosterCard::enterEvent(QEnterEvent*)
 {
-    setProperty("hover", true); // drives the gold ring via Theme QSS
+    setProperty("hover", true); // firms the inset ring via Theme QSS
     style()->unpolish(this);
     style()->polish(this);
+    if (m_shadow)
+        m_shadow->setEnabled(true);
     if (m_liftAnim) {
         m_liftAnim->stop();
         m_liftAnim->setStartValue(m_poster->pos());
@@ -136,6 +150,8 @@ void PosterCard::leaveEvent(QEvent*)
     setProperty("hover", false);
     style()->unpolish(this);
     style()->polish(this);
+    if (m_shadow)
+        m_shadow->setEnabled(false);
     if (m_liftAnim) {
         m_liftAnim->stop();
         m_liftAnim->setStartValue(m_poster->pos());

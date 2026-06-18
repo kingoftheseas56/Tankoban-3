@@ -33,6 +33,7 @@ public:
 
 signals:
     void openDetailRequested(const MetaItem& meta);
+    void playRequested(const MetaItem& meta);
     void openGridRequested(const QString& title, const QVector<MetaItem>& items);
 
 private:

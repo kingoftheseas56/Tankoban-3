@@ -147,11 +147,15 @@ MainWindow::MainWindow(QWidget* parent)
             auto* rowPage = new RowPage(id, this);
             connect(rowPage, &RowPage::openDetailRequested, this, &MainWindow::openDetail);
             connect(rowPage, &RowPage::openGridRequested, this, &MainWindow::openGrid);
+            connect(rowPage, &RowPage::playRequested, this,
+                    [this](const MetaItem& m) { openPlayPicker(m, std::nullopt); });
             page = rowPage;
         } else if (id == QLatin1String("shows")) {
             auto* showsPage = new ShowsPage(this);
             connect(showsPage, &ShowsPage::openDetailRequested, this, &MainWindow::openDetail);
             connect(showsPage, &ShowsPage::openGridRequested, this, &MainWindow::openGrid);
+            connect(showsPage, &ShowsPage::playRequested, this,
+                    [this](const MetaItem& m) { openPlayPicker(m, std::nullopt); });
             page = showsPage;
         } else {
             page = makePlaceholder(QString::fromLatin1(v.title));

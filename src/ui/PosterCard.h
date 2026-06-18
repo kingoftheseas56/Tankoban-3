@@ -16,6 +16,7 @@ class QLabel;
 class QEnterEvent;
 class QMouseEvent;
 class QPropertyAnimation;
+class QGraphicsDropShadowEffect;
 
 namespace tankoban {
 
@@ -45,6 +46,7 @@ private:
     QLabel* m_poster = nullptr;
     QLabel* m_title = nullptr;
     QPropertyAnimation* m_liftAnim = nullptr;
+    QGraphicsDropShadowEffect* m_shadow = nullptr; // soft drop shadow, enabled only on hover
     QString m_url;
     MetaItem m_item;
     bool m_loadRequested = false;
