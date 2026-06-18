@@ -28,6 +28,7 @@ public:
     explicit CatalogRow(const QString& title, QWidget* parent = nullptr);
 
     void setItems(const QVector<MetaItem>& items);
+    void appendItems(const QVector<MetaItem>& items); // lazy-more: add a fetched next page
     void setStatus(const QString& text);
     // Show/hide the Harbor "View all" affordance in the row header. Hidden by default;
     // a page enables it for rows that can open a full-category grid (Harbor: onViewAll).
@@ -36,6 +37,7 @@ public:
 signals:
     void activated(const MetaItem& item);
     void viewAllRequested();
+    void endReached(); // the track scrolled near its right end (Harbor onEndReached)
 
 protected:
     void showEvent(QShowEvent* e) override;
@@ -47,6 +49,7 @@ private:
     void updateVisible();         // lazy-load covers in/near the viewport
     void updateArrows();          // position + show/hide the hover arrows
     void scrollByPage(int dir);   // -1 left / +1 right, smooth glide
+    void maybeEmitEndReached();   // fire endReached() when the track nears its right end
 
     QLabel* m_title = nullptr;
     QPushButton* m_viewAll = nullptr;

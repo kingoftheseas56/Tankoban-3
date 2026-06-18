@@ -45,6 +45,7 @@ private:
 
     QLabel* m_title = nullptr;
     QLabel* m_count = nullptr;
+    QLabel* m_empty = nullptr; // "Nothing here yet." (Harbor grid.tsx done+empty)
     QScrollArea* m_scroll = nullptr;
     QWidget* m_content = nullptr; // the scrolled widget (cards are descendants)
     QWidget* m_grid = nullptr;

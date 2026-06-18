@@ -24,6 +24,9 @@ namespace {
 const char* const kGenre = "/anime?genres=%1&order_by=score&sort=desc&min_score=7&sfw=true&page=1";
 const char* const kEra =
     "/anime?start_date=%1-01-01&end_date=%2-12-31&order_by=score&sort=desc&min_score=7.5&sfw=true&page=1";
+constexpr int kRowMinVisible = 12; // Harbor ROW_MIN_VISIBLE
+constexpr int kRowMaxPages = 5;    // Harbor ROW_MAX_PAGES
+constexpr int kRowCap = 80;        // Harbor row metas cap (loadMore stops at >= 80)
 } // namespace
 
 AnimePage::AnimePage(QWidget* parent)
@@ -113,6 +116,7 @@ AnimePage::AnimePage(QWidget* parent)
         const QString title = def.title;
         connect(row, &CatalogRow::viewAllRequested, this,
                 [this, key, title]() { emit openGridRequested(title, m_items.value(key)); });
+        connect(row, &CatalogRow::endReached, this, [this, key]() { loadMore(key); });
         rowsCol->addWidget(row);
         m_rowWidgets.push_back(row);
     }
@@ -124,6 +128,8 @@ AnimePage::AnimePage(QWidget* parent)
     m_jikan = new JikanClient(this);
     connect(m_jikan, &JikanClient::rowReady, this, &AnimePage::onRow);
     connect(m_jikan, &JikanClient::rowFailed, this, [this](const QString& key, const QString&) {
+        if (m_rowLoading.remove(key))
+            return; // a lazy-more page failed — keep the existing shelf content
         for (int i = 0; i < m_defs.size(); ++i)
             if (m_defs.at(i).key == key)
                 m_rowWidgets.at(i)->hide();
@@ -135,8 +141,6 @@ AnimePage::AnimePage(QWidget* parent)
 
 void AnimePage::onRow(const QString& key, const QVector<MetaItem>& items)
 {
-    m_items.insert(key, items);
-
     int idx = -1;
     for (int i = 0; i < m_defs.size(); ++i)
         if (m_defs.at(i).key == key) {
@@ -146,7 +150,35 @@ void AnimePage::onRow(const QString& key, const QVector<MetaItem>& items)
     if (idx < 0)
         return;
 
-    // Populate the shelf (cap 30, like the other routes); hide if too thin.
+    // Lazy-more page: append just the fresh (deduped, capped) items to the existing shelf.
+    if (m_rowLoading.remove(key)) {
+        QVector<MetaItem>& cur = m_items[key];
+        QSet<QString> ids;
+        for (const MetaItem& m : cur)
+            ids.insert(m.id);
+        QVector<MetaItem> fresh;
+        for (const MetaItem& m : items) {
+            if (cur.size() + fresh.size() >= kRowCap)
+                break;
+            if (m.id.isEmpty() || ids.contains(m.id))
+                continue;
+            fresh.push_back(m);
+            ids.insert(m.id);
+        }
+        cur += fresh;
+        if (!fresh.isEmpty())
+            m_rowWidgets.at(idx)->appendItems(fresh);
+        m_rowPage[key] = m_rowPage.value(key, 1) + 1;
+        m_rowHasMore[key] = items.size() >= kRowMinVisible && cur.size() < kRowCap;
+        return;
+    }
+
+    // First load.
+    m_items.insert(key, items);
+    m_rowPage[key] = 1;
+    m_rowHasMore[key] = (key != QLatin1String("gems")) && items.size() >= kRowMinVisible;
+
+    // Populate the shelf; hide if too thin.
     QVector<MetaItem> kept = items.size() > 30 ? items.mid(0, 30) : items;
     if (kept.size() >= 4) {
         m_rowWidgets.at(idx)->setItems(kept);
@@ -173,6 +205,29 @@ void AnimePage::onRow(const QString& key, const QVector<MetaItem>& items)
         if (m_heroPool.size() >= 6)
             m_heroFull = true;
     }
+}
+
+void AnimePage::loadMore(const QString& key)
+{
+    if (key == QLatin1String("gems"))
+        return; // gems uses a special multi-page fetcher; its own paging is deferred
+    if (m_rowLoading.contains(key) || !m_rowHasMore.value(key, false))
+        return;
+    const int page = m_rowPage.value(key, 1);
+    if (page >= kRowMaxPages || m_items.value(key).size() >= kRowCap)
+        return;
+    int idx = -1;
+    for (int i = 0; i < m_defs.size(); ++i)
+        if (m_defs.at(i).key == key) {
+            idx = i;
+            break;
+        }
+    if (idx < 0)
+        return;
+    QString path = m_defs.at(idx).path;
+    path.replace(QStringLiteral("page=1"), QStringLiteral("page=") + QString::number(page + 1));
+    m_rowLoading.insert(key);
+    m_jikan->fetchRow(key, path);
 }
 
 void AnimePage::resizeEvent(QResizeEvent* e)

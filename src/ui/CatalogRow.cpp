@@ -99,7 +99,7 @@ CatalogRow::CatalogRow(const QString& title, QWidget* parent)
     m_rightArrow = makeArrow(QStringLiteral("chev-right"), +1);
 
     connect(m_scroll->horizontalScrollBar(), &QScrollBar::valueChanged, this,
-            [this]() { updateVisible(); updateArrows(); });
+            [this]() { updateVisible(); updateArrows(); maybeEmitEndReached(); });
     connect(m_scroll->horizontalScrollBar(), &QScrollBar::rangeChanged, this,
             [this]() { updateVisible(); updateArrows(); });
 }
@@ -127,6 +127,29 @@ void CatalogRow::setItems(const QVector<MetaItem>& items)
         m_cards.push_back(card);
     }
     QTimer::singleShot(0, this, [this]() { updateVisible(); updateArrows(); });
+}
+
+void CatalogRow::appendItems(const QVector<MetaItem>& items)
+{
+    for (const MetaItem& m : items) {
+        auto* card = new PosterCard(m, m_track);
+        connect(card, &PosterCard::activated, this, &CatalogRow::activated);
+        m_trackLayout->insertWidget(m_trackLayout->count() - 1, card); // before stretch
+        m_cards.push_back(card);
+    }
+    QTimer::singleShot(0, this, [this]() { updateVisible(); updateArrows(); });
+}
+
+void CatalogRow::maybeEmitEndReached()
+{
+    if (!m_scroll)
+        return;
+    auto* sb = m_scroll->horizontalScrollBar();
+    if (sb->maximum() <= sb->minimum())
+        return;
+    // Harbor measureScroll: fire when the remaining scroll is small (≈ < 800px).
+    if (sb->maximum() - sb->value() < int(m_scroll->viewport()->width() * 0.6))
+        emit endReached();
 }
 
 void CatalogRow::updateVisible()

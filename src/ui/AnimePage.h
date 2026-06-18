@@ -12,6 +12,7 @@
 #pragma once
 
 #include <QHash>
+#include <QSet>
 #include <QString>
 #include <QVector>
 #include <QWidget>
@@ -48,12 +49,16 @@ private:
     };
 
     void onRow(const QString& key, const QVector<MetaItem>& items);
+    void loadMore(const QString& key); // fetch the next Jikan page for a row (lazy-more)
 
     AnimeHero* m_hero = nullptr;
     JikanClient* m_jikan = nullptr;
     QVector<RowDef> m_defs;
     QVector<CatalogRow*> m_rowWidgets;          // parallel to m_defs
-    QHash<QString, QVector<MetaItem>> m_items;   // key -> fetched metas
+    QHash<QString, QVector<MetaItem>> m_items;   // key -> fetched metas (all pages)
+    QHash<QString, int> m_rowPage;               // key -> highest page loaded (1-based)
+    QHash<QString, bool> m_rowHasMore;           // key -> another page is likely available
+    QSet<QString> m_rowLoading;                  // keys with a lazy-more fetch in flight
     QVector<MetaItem> m_heroPool;
     bool m_heroFull = false;
 };

@@ -78,6 +78,14 @@ GridPage::GridPage(QWidget* parent)
     m_grid->setObjectName(QStringLiteral("GridTrack"));
     m_flow = new FlowLayout(m_grid, /*margin=*/0, /*hSpacing=*/16, /*vSpacing=*/32);
     col->addWidget(m_grid);
+
+    // Empty state (Harbor grid.tsx: "Nothing here yet." when done and empty).
+    m_empty = new QLabel(QStringLiteral("Nothing here yet."), m_content);
+    m_empty->setAlignment(Qt::AlignHCenter | Qt::AlignTop);
+    m_empty->setStyleSheet(QStringLiteral("color:#8b8f99;font-size:14px;padding:80px 0;"));
+    m_empty->hide();
+    col->addWidget(m_empty);
+
     col->addStretch(1);
 
     m_scroll->setWidget(m_content);
@@ -91,6 +99,8 @@ void GridPage::setCatalog(const QString& title, const QVector<MetaItem>& items)
     m_title->setText(title);
     m_count->setText(QString::number(items.size())
                      + (items.size() == 1 ? QStringLiteral(" title") : QStringLiteral(" titles")));
+    if (m_empty)
+        m_empty->setVisible(items.isEmpty());
 
     clearCards();
     m_cards.reserve(items.size());
