@@ -35,7 +35,8 @@ public:
 signals:
     void openDetailRequested(const MetaItem& meta);
     void playRequested(const MetaItem& meta);
-    void openGridRequested(const QString& title, const QVector<MetaItem>& items);
+    void openGridPagedRequested(const QString& title, const QVector<MetaItem>& items,
+                                const QString& jikanPathTemplate, int startPage);
 
 protected:
     void resizeEvent(QResizeEvent* e) override;

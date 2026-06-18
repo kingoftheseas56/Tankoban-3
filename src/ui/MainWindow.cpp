@@ -161,7 +161,7 @@ MainWindow::MainWindow(QWidget* parent)
         } else if (id == QLatin1String("anime")) {
             auto* animePage = new AnimePage(this);
             connect(animePage, &AnimePage::openDetailRequested, this, &MainWindow::openDetail);
-            connect(animePage, &AnimePage::openGridRequested, this, &MainWindow::openGrid);
+            connect(animePage, &AnimePage::openGridPagedRequested, this, &MainWindow::openGridPaged);
             connect(animePage, &AnimePage::playRequested, this,
                     [this](const MetaItem& m) { openPlayPicker(m, std::nullopt); });
             page = animePage;
@@ -253,6 +253,16 @@ void MainWindow::openGrid(const QString& title, const QVector<MetaItem>& items)
     if (!m_gridPage)
         return;
     m_gridPage->setCatalog(title, items);
+    m_gridReturnIndex = m_content->currentIndex();
+    m_content->setCurrentIndex(m_gridIndex);
+}
+
+void MainWindow::openGridPaged(const QString& title, const QVector<MetaItem>& items,
+                               const QString& jikanPathTemplate, int startPage)
+{
+    if (!m_gridPage)
+        return;
+    m_gridPage->setPagedCatalog(title, items, jikanPathTemplate, startPage);
     m_gridReturnIndex = m_content->currentIndex();
     m_content->setCurrentIndex(m_gridIndex);
 }

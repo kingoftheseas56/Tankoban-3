@@ -52,6 +52,9 @@ private:
     void openDetail(const MetaItem& meta);
     // Open a full-category grid ("View all"), pushed over the current route; back returns.
     void openGrid(const QString& title, const QVector<MetaItem>& items);
+    // Anime View-all: like openGrid but the grid infinite-scrolls via a Jikan path template.
+    void openGridPaged(const QString& title, const QVector<MetaItem>& items,
+                       const QString& jikanPathTemplate, int startPage);
     void openPlayPicker(const MetaItem& meta, std::optional<EpisodeItem> episode);
     MetaDetail detailFromMetaItem(const MetaItem& meta) const;
     // Raw addon streams -> parsed -> scored -> ranked (M3/M4 brain), for the picker.

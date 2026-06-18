@@ -2,6 +2,7 @@
 
 #include "ui/GridPage.h"
 
+#include "core/JikanClient.h"
 #include "ui/BackToTop.h"
 #include "ui/FlowLayout.h"
 #include "ui/Icons.h"
@@ -93,29 +94,59 @@ GridPage::GridPage(QWidget* parent)
 
     new BackToTop(m_scroll, this); // Harbor grid.tsx renders <BackToTop>
 
+    // Grid pager (Harbor grid fetcher): its own JikanClient so View-all infinite-scrolls
+    // independent of the row; shares the static Jikan cache so loaded pages are instant.
+    m_jikan = new JikanClient(this);
+    connect(m_jikan, &JikanClient::rowReady, this, &GridPage::onGridPage);
+    connect(m_jikan, &JikanClient::rowFailed, this, [this](const QString& k, const QString&) {
+        if (k == QLatin1String("__grid__")) {
+            m_pageLoading = false;
+            m_pageDone = true; // stop paging on error (Harbor catch -> done)
+        }
+    });
+
     connect(m_scroll->verticalScrollBar(), &QScrollBar::valueChanged, this,
-            [this]() { updateVisible(); });
+            [this]() { updateVisible(); checkLoadMore(); });
 }
 
 void GridPage::setCatalog(const QString& title, const QVector<MetaItem>& items)
 {
-    m_title->setText(title);
-    m_count->setText(QString::number(items.size())
-                     + (items.size() == 1 ? QStringLiteral(" title") : QStringLiteral(" titles")));
-    if (m_empty)
-        m_empty->setVisible(items.isEmpty());
+    setPagedCatalog(title, items, QString(), 0); // no template -> no infinite paging
+}
 
+void GridPage::setPagedCatalog(const QString& title, const QVector<MetaItem>& initial,
+                               const QString& jikanPathTemplate, int startPage)
+{
+    m_title->setText(title);
+    m_pagePath = jikanPathTemplate;
+    m_page = startPage;
+    m_pageLoading = false;
+    m_pageDone = jikanPathTemplate.isEmpty();
+
+    m_seenIds.clear();
     clearCards();
-    m_cards.reserve(items.size());
+    appendCards(initial);
+    if (m_empty)
+        m_empty->setVisible(m_cards.isEmpty() && m_pageDone);
+
+    // New category: jump to the top, then lazy-load the first viewport + maybe page more.
+    m_scroll->verticalScrollBar()->setValue(0);
+    QTimer::singleShot(0, this, [this]() { updateVisible(); checkLoadMore(); });
+}
+
+void GridPage::appendCards(const QVector<MetaItem>& items)
+{
     for (const MetaItem& m : items) {
+        if (m.id.isEmpty() || m_seenIds.contains(m.id))
+            continue;
+        m_seenIds.insert(m.id);
         auto* card = new PosterCard(m, m_grid);
         connect(card, &PosterCard::activated, this, &GridPage::openDetailRequested);
         m_flow->addWidget(card);
         m_cards.push_back(card);
     }
-    // Scroll back to the top for the new category, then lazy-load the first viewport.
-    m_scroll->verticalScrollBar()->setValue(0);
-    QTimer::singleShot(0, this, [this]() { updateVisible(); });
+    m_count->setText(QString::number(m_cards.size())
+                     + (m_cards.size() == 1 ? QStringLiteral(" title") : QStringLiteral(" titles")));
 }
 
 void GridPage::clearCards()
@@ -145,16 +176,49 @@ void GridPage::updateVisible()
     }
 }
 
+void GridPage::checkLoadMore()
+{
+    if (m_pageDone || m_pageLoading || m_pagePath.isEmpty() || m_page >= kPageCap)
+        return;
+    auto* sb = m_scroll->verticalScrollBar();
+    // Near the bottom (Harbor IntersectionObserver rootMargin ~900px); also fires when the
+    // content is shorter than the viewport, so short categories keep filling toward the cap.
+    if (sb->maximum() - sb->value() >= 900)
+        return;
+    m_pageLoading = true;
+    QString path = m_pagePath;
+    path.replace(QStringLiteral("page=1"), QStringLiteral("page=") + QString::number(m_page + 1));
+    m_jikan->fetchRow(QStringLiteral("__grid__"), path);
+}
+
+void GridPage::onGridPage(const QString& key, const QVector<MetaItem>& items)
+{
+    if (key != QLatin1String("__grid__"))
+        return;
+    m_pageLoading = false;
+    if (items.isEmpty()) {
+        m_pageDone = true;
+        return;
+    }
+    const int before = m_cards.size();
+    appendCards(items);
+    m_page += 1;
+    if (m_cards.size() == before || m_page >= kPageCap)
+        m_pageDone = true; // no fresh items, or hit the page cap
+    QTimer::singleShot(0, this, [this]() { updateVisible(); checkLoadMore(); });
+}
+
 void GridPage::showEvent(QShowEvent* e)
 {
     QWidget::showEvent(e);
-    QTimer::singleShot(0, this, [this]() { updateVisible(); });
+    QTimer::singleShot(0, this, [this]() { updateVisible(); checkLoadMore(); });
 }
 
 void GridPage::resizeEvent(QResizeEvent* e)
 {
     QWidget::resizeEvent(e);
     updateVisible();
+    checkLoadMore();
 }
 
 } // namespace tankoban

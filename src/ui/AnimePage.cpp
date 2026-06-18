@@ -115,8 +115,11 @@ AnimePage::AnimePage(QWidget* parent)
         row->setViewAllVisible(true);
         const QString key = def.key;
         const QString title = def.title;
-        connect(row, &CatalogRow::viewAllRequested, this,
-                [this, key, title]() { emit openGridRequested(title, m_items.value(key)); });
+        // Gems can't page by a simple path template (it's a 2-page filtered fetch) -> no paging.
+        const QString tmpl = (def.key == QLatin1String("gems")) ? QString() : def.path;
+        connect(row, &CatalogRow::viewAllRequested, this, [this, key, title, tmpl]() {
+            emit openGridPagedRequested(title, m_items.value(key), tmpl, m_rowPage.value(key, 1));
+        });
         connect(row, &CatalogRow::endReached, this, [this, key]() { loadMore(key); });
         row->hide(); // hidden until its first data lands (no visible "Loading…" shelves)
         rowsCol->addWidget(row);
