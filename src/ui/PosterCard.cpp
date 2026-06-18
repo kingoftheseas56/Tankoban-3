@@ -222,7 +222,17 @@ void PosterCard::leaveEvent(QEvent*)
 
 void PosterCard::mousePressEvent(QMouseEvent* e)
 {
+    // Claim the press so we receive the release, but activate on RELEASE — this lets the row's
+    // drag-to-pan filter cancel a click that turned into a drag (Harbor onClickCapture).
     if (e->button() == Qt::LeftButton)
+        e->accept();
+    else
+        QWidget::mousePressEvent(e);
+}
+
+void PosterCard::mouseReleaseEvent(QMouseEvent* e)
+{
+    if (e->button() == Qt::LeftButton && rect().contains(e->pos()))
         emit activated(m_item);
 }
 

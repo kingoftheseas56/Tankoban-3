@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <QElapsedTimer>
 #include <QVector>
 #include <QWidget>
 
@@ -17,6 +18,7 @@ class QScrollArea;
 class QShowEvent;
 class QResizeEvent;
 class QEnterEvent;
+class QEvent;
 
 namespace tankoban {
 
@@ -44,6 +46,7 @@ protected:
     void resizeEvent(QResizeEvent* e) override;
     void enterEvent(QEnterEvent* e) override;
     void leaveEvent(QEvent* e) override;
+    bool eventFilter(QObject* watched, QEvent* event) override; // drag-to-pan the track
 
 private:
     void updateVisible();         // lazy-load covers in/near the viewport
@@ -61,6 +64,16 @@ private:
     QPushButton* m_rightArrow = nullptr;
     QVector<PosterCard*> m_cards;
     bool m_hovered = false;
+
+    // Drag-to-pan + momentum glide (Harbor row pointer drag, row.tsx:275-400).
+    bool m_dragActive = false;
+    bool m_dragMoved = false;
+    int m_dragStartX = 0;
+    int m_dragStartScroll = 0;
+    int m_dragLastX = 0;
+    qint64 m_dragLastT = 0;
+    qreal m_dragVel = 0.0;
+    QElapsedTimer m_dragClock;
 };
 
 } // namespace tankoban

@@ -44,6 +44,7 @@ protected:
     void enterEvent(QEnterEvent* e) override;
     void leaveEvent(QEvent* e) override;
     void mousePressEvent(QMouseEvent* e) override;
+    void mouseReleaseEvent(QMouseEvent* e) override;
 
 private:
     void loadPoster(const QString& url);

@@ -9,7 +9,9 @@
 #include <QColor>
 #include <QEasingCurve>
 #include <QEnterEvent>
+#include <QEvent>
 #include <QFrame>
+#include <QMouseEvent>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPropertyAnimation>
@@ -103,6 +105,9 @@ CatalogRow::CatalogRow(const QString& title, QWidget* parent)
             [this]() { updateVisible(); updateArrows(); maybeEmitEndReached(); });
     connect(m_scroll->horizontalScrollBar(), &QScrollBar::rangeChanged, this,
             [this]() { updateVisible(); updateArrows(); });
+
+    // Drag-to-pan: watch the viewport (drags starting on empty track) and each card.
+    m_scroll->viewport()->installEventFilter(this);
 }
 
 void CatalogRow::setStatus(const QString& text)
@@ -124,6 +129,7 @@ void CatalogRow::setItems(const QVector<MetaItem>& items)
     for (int i = 0; i < cap; ++i) {
         auto* card = new PosterCard(items.at(i), m_track);
         connect(card, &PosterCard::activated, this, &CatalogRow::activated);
+        card->installEventFilter(this); // drag-to-pan starts even on a card
         m_trackLayout->insertWidget(m_trackLayout->count() - 1, card); // before stretch
         m_cards.push_back(card);
     }
@@ -135,6 +141,7 @@ void CatalogRow::appendItems(const QVector<MetaItem>& items)
     for (const MetaItem& m : items) {
         auto* card = new PosterCard(m, m_track);
         connect(card, &PosterCard::activated, this, &CatalogRow::activated);
+        card->installEventFilter(this); // drag-to-pan starts even on a card
         m_trackLayout->insertWidget(m_trackLayout->count() - 1, card); // before stretch
         m_cards.push_back(card);
     }
@@ -224,6 +231,78 @@ void CatalogRow::leaveEvent(QEvent*)
 {
     m_hovered = false;
     updateArrows();
+}
+
+bool CatalogRow::eventFilter(QObject* watched, QEvent* event)
+{
+    switch (event->type()) {
+    case QEvent::MouseButtonPress: {
+        auto* me = static_cast<QMouseEvent*>(event);
+        if (me->button() == Qt::LeftButton) {
+            m_dragActive = true;
+            m_dragMoved = false;
+            m_dragStartX = int(me->globalPosition().x());
+            m_dragLastX = m_dragStartX;
+            m_dragStartScroll = m_scroll->horizontalScrollBar()->value();
+            if (!m_dragClock.isValid())
+                m_dragClock.start();
+            m_dragLastT = m_dragClock.elapsed();
+            m_dragVel = 0.0;
+        }
+        return false; // let the card see the press (it activates on release)
+    }
+    case QEvent::MouseMove: {
+        if (!m_dragActive)
+            return false;
+        auto* me = static_cast<QMouseEvent*>(event);
+        if (!(me->buttons() & Qt::LeftButton)) {
+            m_dragActive = false;
+            return false;
+        }
+        const int x = int(me->globalPosition().x());
+        const int dx = x - m_dragStartX;
+        const qint64 now = m_dragClock.elapsed();
+        const qint64 dt = now - m_dragLastT;
+        if (dt > 0) {
+            const qreal inst = qreal(x - m_dragLastX) / qreal(dt);
+            m_dragVel = m_dragVel * 0.6 + inst * 0.4;
+        }
+        m_dragLastX = x;
+        m_dragLastT = now;
+        if (!m_dragMoved && qAbs(dx) > 6)
+            m_dragMoved = true;
+        if (m_dragMoved) {
+            m_scroll->horizontalScrollBar()->setValue(m_dragStartScroll - dx);
+            return true; // consume — this is a pan, not a click
+        }
+        return false;
+    }
+    case QEvent::MouseButtonRelease: {
+        if (!m_dragActive)
+            return false;
+        m_dragActive = false;
+        if (!m_dragMoved)
+            return false; // a plain click — let the card activate
+        m_dragMoved = false;
+        // Momentum glide, snapped to the nearest card stride (Harbor friction + snap).
+        auto* sb = m_scroll->horizontalScrollBar();
+        const int stride = PosterCard::kPosterW + m_trackLayout->spacing();
+        int target = sb->value() - int(m_dragVel * 150.0);
+        if (stride > 0)
+            target = ((target + stride / 2) / stride) * stride;
+        target = qBound(sb->minimum(), target, sb->maximum());
+        auto* anim = new QPropertyAnimation(sb, "value", this);
+        anim->setDuration(360);
+        anim->setEasingCurve(QEasingCurve::OutCubic);
+        anim->setStartValue(sb->value());
+        anim->setEndValue(target);
+        anim->start(QAbstractAnimation::DeleteWhenStopped);
+        return true; // consume the release so the card doesn't activate after a drag
+    }
+    default:
+        break;
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 } // namespace tankoban
