@@ -64,6 +64,8 @@ qt_add_executable(Tankoban3
     src/core/StreamScorer.cpp
     src/core/StreamService.h
     src/core/StreamService.cpp
+    src/core/JikanClient.h
+    src/core/JikanClient.cpp
     src/core/AddonStoreModels.h
     src/core/StremioAddonsProvider.h
     src/core/StremioAddonsProvider.cpp
@@ -112,6 +114,10 @@ qt_add_executable(Tankoban3
     src/ui/RowPage.cpp
     src/ui/CinemaHero.h
     src/ui/CinemaHero.cpp
+    src/ui/AnimeHero.h
+    src/ui/AnimeHero.cpp
+    src/ui/AnimePage.h
+    src/ui/AnimePage.cpp
     src/ui/FlowLayout.h
     src/ui/FlowLayout.cpp
     src/ui/GridPage.h

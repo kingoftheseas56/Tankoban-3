@@ -13,6 +13,7 @@
 #include "ui/RowPage.h"
 #include "ui/GridPage.h"
 #include "ui/ShowsPage.h"
+#include "ui/AnimePage.h"
 #include "ui/PlayPickerPage.h"
 #include "ui/Sidebar.h"
 #include "ui/VideoPlayerPage.h"
@@ -157,6 +158,13 @@ MainWindow::MainWindow(QWidget* parent)
             connect(showsPage, &ShowsPage::playRequested, this,
                     [this](const MetaItem& m) { openPlayPicker(m, std::nullopt); });
             page = showsPage;
+        } else if (id == QLatin1String("anime")) {
+            auto* animePage = new AnimePage(this);
+            connect(animePage, &AnimePage::openDetailRequested, this, &MainWindow::openDetail);
+            connect(animePage, &AnimePage::openGridRequested, this, &MainWindow::openGrid);
+            connect(animePage, &AnimePage::playRequested, this,
+                    [this](const MetaItem& m) { openPlayPicker(m, std::nullopt); });
+            page = animePage;
         } else {
             page = makePlaceholder(QString::fromLatin1(v.title));
         }

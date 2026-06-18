@@ -25,8 +25,13 @@ inline QString navSvgInner(const QString& id)
         return QStringLiteral("<rect width='18' height='18' x='3' y='3' rx='2'/><path d='M7 3v18M17 3v18M3 7.5h4M17 7.5h4M3 12h18M3 16.5h4M17 16.5h4'/>");
     if (id == QLatin1String("shows"))
         return QStringLiteral("<rect width='20' height='15' x='2' y='7' rx='2'/><polyline points='17 2 12 7 7 2'/>");
-    if (id == QLatin1String("anime"))
-        return QStringLiteral("<polygon points='12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2'/>");
+    if (id == QLatin1String("anime")) // Harbor's anime mark is a cat (lucide cat)
+        return QStringLiteral(
+            "<path d='M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 "
+            ".57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0"
+            "-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z'/>"
+            "<path d='M8 14v.5'/><path d='M16 14v.5'/>"
+            "<path d='M11.25 16.25h1.5L12 17l-.75-.75Z'/>");
     if (id == QLatin1String("library"))
         return QStringLiteral("<path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z'/><path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20'/>");
     if (id == QLatin1String("downloads"))
@@ -39,6 +44,8 @@ inline QString navSvgInner(const QString& id)
         return QStringLiteral("<path d='m15 18-6-6 6-6'/>");
     if (id == QLatin1String("chev-right"))
         return QStringLiteral("<path d='m9 18 6-6-6-6'/>");
+    if (id == QLatin1String("bookmark"))
+        return QStringLiteral("<path d='m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z'/>");
     // Harbor's CollapseToggle glyphs (lucide PanelLeftClose / PanelLeftOpen).
     if (id == QLatin1String("panel-collapse"))
         return QStringLiteral("<rect width='18' height='18' x='3' y='3' rx='2'/>"
