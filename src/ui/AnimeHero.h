@@ -5,14 +5,15 @@
 // a 3-line synopsis, Start Watching + Save buttons, prev/next arrows, and over-hero dots.
 // 14s rotation. This is the Anime hero — NOT CinemaHero (Movies) or PeekHero (Shows).
 //
-// Start Watching (and a bare click) opens Detail — Harbor's AnimeHero "Start Watching"
-// routes through openMeta, not the picker. Drag follows the content block + cross-fades the
-// backdrop on release (the smooth CinemaHero approach). Height is driven by the host page.
-// v1 trims: no TMDB logo/backdrop, no awards badge, no top-picks panel, no MAL-score chip.
+// Start Watching opens Detail (Harbor's AnimeHero routes through openMeta, not the picker).
+// Harbor has NO hero drag/flick and NO bare-click-to-open, so neither does this (1:1 until
+// recreation). Navigation is arrows + dots + 14s auto-rotate, paused on hover AND when the
+// route is hidden. Height is driven by the host page.
+// v1 trims: no TMDB logo/backdrop, no awards badge, no top-picks panel; MAL-score chip +
+// Harbor button styling land in parity increment 2b.
 
 #pragma once
 
-#include <QElapsedTimer>
 #include <QImage>
 #include <QPixmap>
 #include <QString>
@@ -27,10 +28,11 @@ class QPushButton;
 class QTimer;
 class QNetworkAccessManager;
 class QGraphicsOpacityEffect;
-class QMouseEvent;
 class QPaintEvent;
 class QResizeEvent;
 class QEnterEvent;
+class QShowEvent;
+class QHideEvent;
 
 namespace tankoban {
 
@@ -47,11 +49,10 @@ signals:
 protected:
     void paintEvent(QPaintEvent*) override;
     void resizeEvent(QResizeEvent*) override;
-    void mousePressEvent(QMouseEvent*) override;
-    void mouseMoveEvent(QMouseEvent*) override;
-    void mouseReleaseEvent(QMouseEvent*) override;
     void enterEvent(QEnterEvent*) override;
     void leaveEvent(QEvent*) override;
+    void showEvent(QShowEvent*) override;
+    void hideEvent(QHideEvent*) override;
 
 private:
     void showSlide(int i, bool animate);
@@ -89,15 +90,6 @@ private:
     QVector<QPushButton*> m_dots;
 
     QTimer* m_autoTimer = nullptr;
-
-    bool m_dragActive = false;
-    bool m_dragMoved = false;
-    int m_startX = 0;
-    int m_lastX = 0;
-    qint64 m_lastT = 0;
-    qreal m_vel = 0.0;
-    int m_contentBaseX = 0;
-    QElapsedTimer m_clock;
 };
 
 } // namespace tankoban

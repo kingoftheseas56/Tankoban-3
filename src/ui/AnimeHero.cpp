@@ -12,7 +12,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLinearGradient>
-#include <QMouseEvent>
+#include <QHideEvent>
 #include <QNetworkAccessManager>
 #include <QNetworkDiskCache>
 #include <QNetworkReply>
@@ -23,6 +23,7 @@
 #include <QPropertyAnimation>
 #include <QPushButton>
 #include <QResizeEvent>
+#include <QShowEvent>
 #include <QStandardPaths>
 #include <QStyle>
 #include <QTimer>
@@ -34,9 +35,6 @@ namespace tankoban {
 
 namespace {
 const QColor kCanvas(0x12, 0x13, 0x17);
-constexpr int kDragBudge = 6;
-constexpr qreal kSnapRatio = 0.18;
-constexpr qreal kFlickVel = 0.45;
 
 QString upgradeBackground(QString url)
 {
@@ -78,7 +76,7 @@ AnimeHero::AnimeHero(QWidget* parent)
 {
     setObjectName(QStringLiteral("AnimeHero"));
     setAttribute(Qt::WA_StyledBackground, true);
-    setCursor(Qt::PointingHandCursor);
+    setCursor(Qt::ArrowCursor); // no drag/bare-click (Harbor); buttons/arrows set their own
 
     m_nam = animeNam();
 
@@ -199,7 +197,6 @@ void AnimeHero::setSlides(const QVector<MetaItem>& slides)
         return;
     }
     showSlide(0, false);
-    setCursor(m_slides.size() > 1 ? Qt::OpenHandCursor : Qt::PointingHandCursor);
     if (m_slides.size() > 1)
         m_autoTimer->start();
     else
@@ -309,7 +306,9 @@ QPixmap AnimeHero::coverScaled(const QImage& src) const
     const qreal dpr = devicePixelRatioF();
     const QSize phys(int(w * dpr), int(h * dpr));
     QImage scaled = src.scaled(phys, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-    const int x = qMax(0, (scaled.width() - phys.width()) / 2);
+    // Harbor object-position "75% center": bias the horizontal crop to 75% (anime art is
+    // poster-like and often weighted right); vertical stays centered.
+    const int x = qMax(0, int((scaled.width() - phys.width()) * 0.75));
     const int y = qMax(0, (scaled.height() - phys.height()) / 2);
     scaled = scaled.copy(x, y, qMin(phys.width(), scaled.width()), qMin(phys.height(), scaled.height()));
     QPixmap pm = QPixmap::fromImage(scaled);
@@ -437,85 +436,28 @@ void AnimeHero::syncDots()
     }
 }
 
-void AnimeHero::mousePressEvent(QMouseEvent* e)
-{
-    if (e->button() != Qt::LeftButton)
-        return;
-    m_dragActive = true;
-    m_dragMoved = false;
-    m_startX = e->pos().x();
-    m_lastX = m_startX;
-    if (!m_clock.isValid())
-        m_clock.start();
-    m_lastT = m_clock.elapsed();
-    m_vel = 0.0;
-    m_contentBaseX = m_content ? m_content->x() : 0;
-}
-
-void AnimeHero::mouseMoveEvent(QMouseEvent* e)
-{
-    if (!(e->buttons() & Qt::LeftButton)) {
-        m_dragActive = false;
-        m_dragMoved = false;
-        return;
-    }
-    if (!m_dragActive)
-        return;
-    const int x = e->pos().x();
-    const int dx = x - m_startX;
-    const qint64 now = m_clock.isValid() ? m_clock.elapsed() : 0;
-    const qint64 dt = now - m_lastT;
-    if (dt > 0) {
-        const qreal inst = qreal(x - m_lastX) / qreal(dt);
-        m_vel = m_vel * 0.6 + inst * 0.4;
-    }
-    m_lastX = x;
-    m_lastT = now;
-
-    if (!m_dragMoved && qAbs(dx) > kDragBudge && m_slides.size() > 1) {
-        m_dragMoved = true;
-        setCursor(Qt::ClosedHandCursor);
-    }
-    if (m_dragMoved && m_content)
-        m_content->move(m_contentBaseX + dx, m_content->y());
-}
-
-void AnimeHero::mouseReleaseEvent(QMouseEvent* e)
-{
-    if (!m_dragActive)
-        return;
-    m_dragActive = false;
-
-    if (m_dragMoved) {
-        const qreal threshold = qreal(qMax(1, width())) * kSnapRatio;
-        const qreal dist = qreal(m_lastX - m_startX);
-        int dir = 0;
-        if (dist < -threshold || m_vel < -kFlickVel)
-            dir = +1;
-        else if (dist > threshold || m_vel > kFlickVel)
-            dir = -1;
-        if (m_content)
-            m_content->move(m_contentBaseX, m_content->y());
-        setCursor(m_slides.size() > 1 ? Qt::OpenHandCursor : Qt::PointingHandCursor);
-        m_dragMoved = false;
-        if (dir != 0)
-            goTo(m_active + dir);
-    } else if (e->button() == Qt::LeftButton) {
-        const int i = activeIndex();
-        if (i >= 0)
-            emit openDetailRequested(m_slides[i]);
-    }
-}
-
 void AnimeHero::enterEvent(QEnterEvent*)
 {
-    m_autoTimer->stop();
+    m_autoTimer->stop(); // pause rotation on hover (Harbor onMouseEnter)
 }
 
 void AnimeHero::leaveEvent(QEvent*)
 {
     if (m_slides.size() > 1)
         m_autoTimer->start();
+}
+
+void AnimeHero::showEvent(QShowEvent* e)
+{
+    QWidget::showEvent(e);
+    if (m_slides.size() > 1) // resume when the Anime route becomes visible again
+        m_autoTimer->start();
+}
+
+void AnimeHero::hideEvent(QHideEvent* e)
+{
+    QWidget::hideEvent(e);
+    m_autoTimer->stop(); // pause when the route is hidden (Harbor usePageVisible / inView)
 }
 
 } // namespace tankoban
