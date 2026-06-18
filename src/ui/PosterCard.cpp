@@ -5,6 +5,8 @@
 #include <QColor>
 #include <QEasingCurve>
 #include <QEnterEvent>
+#include <QFont>
+#include <QFontMetrics>
 #include <QGraphicsDropShadowEffect>
 #include <QImage>
 #include <QLabel>
@@ -57,7 +59,7 @@ PosterCard::PosterCard(const MetaItem& item, QWidget* parent)
     // Top padding = the hover lift, so the poster has room to rise to the card's top edge
     // on hover without being clipped by the card (Qt clips children to the parent rect).
     col->setContentsMargins(0, kHoverLift, 0, 0);
-    col->setSpacing(8);
+    col->setSpacing(10); // Harbor gap-2.5
 
     m_poster = new QLabel(this);
     m_poster->setObjectName(QStringLiteral("Poster"));
@@ -68,7 +70,15 @@ PosterCard::PosterCard(const MetaItem& item, QWidget* parent)
     m_title = new QLabel(item.name, this);
     m_title->setObjectName(QStringLiteral("PosterTitle"));
     m_title->setFixedWidth(kPosterW);
-    m_title->setWordWrap(false);
+    m_title->setWordWrap(true); // Harbor line-clamp-2
+    m_title->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    {
+        // Clamp to exactly two lines (height from a 13px medium font, robust vs QSS timing).
+        QFont tf;
+        tf.setPixelSize(13);
+        tf.setWeight(QFont::Medium);
+        m_title->setFixedHeight(QFontMetrics(tf).lineSpacing() * 2);
+    }
     col->addWidget(m_title);
 
     // Hover lift (Harbor PickCard group-hover:-translate-y-2): the poster glides up ~8px

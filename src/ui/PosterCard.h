@@ -28,9 +28,9 @@ public:
     // Fetch the cover the first time the card scrolls into view (idempotent).
     void ensureLoaded();
 
-    static constexpr int kPosterW = 150;
-    static constexpr int kPosterH = 225; // 2:3
-    static constexpr int kHoverLift = 8; // Harbor group-hover:-translate-y-2
+    static constexpr int kPosterW = 144;  // Harbor default min card width
+    static constexpr int kPosterH = 216;  // 2:3
+    static constexpr int kHoverLift = 8;  // Harbor group-hover:-translate-y-2
 
 signals:
     void activated(const MetaItem& item);

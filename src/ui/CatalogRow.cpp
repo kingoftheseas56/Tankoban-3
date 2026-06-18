@@ -31,7 +31,7 @@ CatalogRow::CatalogRow(const QString& title, QWidget* parent)
 
     auto* col = new QVBoxLayout(this);
     col->setContentsMargins(0, 0, 0, 0);
-    col->setSpacing(12);
+    col->setSpacing(20); // Harbor row flex flex-col gap-5
 
     // Header: title on the left, optional "View all" on the right (Harbor row.tsx —
     // a flex justify-between header that reveals View all whenever onViewAll is wired).
@@ -71,13 +71,14 @@ CatalogRow::CatalogRow(const QString& title, QWidget* parent)
     m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_scroll->setFrameShape(QFrame::NoFrame);
-    m_scroll->setFixedHeight(PosterCard::kPosterH + 44);
+    // Fits the card: hover-lift + poster + gap-2.5 + a 2-line title.
+    m_scroll->setFixedHeight(PosterCard::kHoverLift + PosterCard::kPosterH + 10 + 38);
 
     m_track = new QWidget(m_scroll);
     m_track->setObjectName(QStringLiteral("RowTrack"));
     m_trackLayout = new QHBoxLayout(m_track);
     m_trackLayout->setContentsMargins(0, 0, 0, 0);
-    m_trackLayout->setSpacing(16);
+    m_trackLayout->setSpacing(20); // Harbor GAP = 20
     m_trackLayout->addStretch();
     m_scroll->setWidget(m_track);
     col->addWidget(m_scroll);
@@ -152,7 +153,7 @@ void CatalogRow::updateArrows()
         return;
     auto* sb = m_scroll->horizontalScrollBar();
     const bool scrollable = sb->maximum() > sb->minimum();
-    const int ay = m_scroll->y() + PosterCard::kPosterH / 2 - 22;
+    const int ay = m_scroll->y() + PosterCard::kHoverLift + PosterCard::kPosterH / 2 - 22;
     m_leftArrow->move(m_scroll->x() + 8, ay);
     m_rightArrow->move(m_scroll->x() + m_scroll->width() - 44 - 8, ay);
     m_leftArrow->setVisible(m_hovered && scrollable && sb->value() > sb->minimum());
