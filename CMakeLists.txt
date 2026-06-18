@@ -112,6 +112,8 @@ qt_add_executable(Tankoban3
     src/ui/AddonsPage.cpp
     src/ui/HomePage.h
     src/ui/HomePage.cpp
+    src/ui/DiscoverPage.h
+    src/ui/DiscoverPage.cpp
     src/ui/RowPage.h
     src/ui/RowPage.cpp
     src/ui/CinemaHero.h

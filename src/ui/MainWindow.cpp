@@ -9,6 +9,7 @@
 #include "core/StreamService.h"
 #include "ui/AddonsPage.h"
 #include "ui/DetailPage.h"
+#include "ui/DiscoverPage.h"
 #include "ui/HomePage.h"
 #include "ui/RowPage.h"
 #include "ui/GridPage.h"
@@ -144,6 +145,11 @@ MainWindow::MainWindow(QWidget* parent)
             page = home;
         } else if (id == QLatin1String("addons")) {
             page = new AddonsPage(m_registry, this);
+        } else if (id == QLatin1String("discover")) {
+            auto* discoverPage = new DiscoverPage(this);
+            connect(discoverPage, &DiscoverPage::openDetailRequested, this, &MainWindow::openDetail);
+            connect(discoverPage, &DiscoverPage::openGridRequested, this, &MainWindow::openGrid);
+            page = discoverPage;
         } else if (id == QLatin1String("movies")) {
             auto* rowPage = new RowPage(id, this);
             connect(rowPage, &RowPage::openDetailRequested, this, &MainWindow::openDetail);
