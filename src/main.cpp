@@ -16,6 +16,7 @@
 #include <QFileInfo>
 #include <QScreen>
 #include <QStandardPaths>
+#include <QThread>
 #include <QTimer>
 #include <QUrl>
 
@@ -68,6 +69,25 @@ int main(int argc, char** argv)
     // constructs in-process. Env-gated so normal startup is untouched.
     if (qEnvironmentVariableIsSet("TANKOBAN3_LT_SMOKE")) {
         tankoban::tstream::ltLinkSmoke();
+        return 0;
+    }
+
+    // Phase 4 debug: headless swarm probe for ONE infoHash. Adds the torrent and
+    // logs per-torrent swarm health (peers/seeds/dl) via the engine pump for ~2 min,
+    // so we can read WHY a specific torrent does/doesn't download. curl the printed
+    // URL to also exercise the head-piece deadline path. Env: TANKOBAN3_STREAM_PROBE=<hash>.
+    if (qEnvironmentVariableIsSet("TANKOBAN3_STREAM_PROBE")) {
+        const QString hash = qEnvironmentVariable("TANKOBAN3_STREAM_PROBE").trimmed();
+        const QString cache = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+                              + QStringLiteral("/torrent-stream");
+        QDir().mkpath(cache);
+        auto eng = std::make_unique<tankoban::tstream::StreamEngine>(cache.toStdString());
+        if (eng->start()) {
+            const std::string url = eng->streamUrl(hash.toStdString(), -1, {});
+            std::fprintf(stdout, "PROBE URL: %s\n", url.c_str());
+            std::fflush(stdout);
+        }
+        QThread::sleep(120);
         return 0;
     }
 

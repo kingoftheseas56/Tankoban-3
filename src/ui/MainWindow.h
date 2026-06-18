@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <memory>
 #include <optional>
 
 #include <QHash>
@@ -16,6 +17,7 @@
 #include "core/MetaDetail.h"
 #include "core/MetaItem.h"
 #include "core/StreamModels.h"
+#include "core/torrentstream/StreamEngine.h"
 
 class QStackedWidget;
 class QResizeEvent;
@@ -79,6 +81,7 @@ private:
     QNetworkAccessManager* m_streamNetwork = nullptr;
     StreamService* m_streamService = nullptr;
     VideoPlayerPage* m_player = nullptr;
+    std::unique_ptr<tankoban::tstream::StreamEngine> m_streamEngine;  // lazy: torrent streaming
     MetaDetail m_currentPickerMeta;
     std::optional<EpisodeItem> m_currentPickerEpisode;
     int m_detailIndex = -1;

@@ -19,6 +19,7 @@
 #include "ui/VideoPlayerPage.h"
 
 #include <QCursor>
+#include <QDir>
 #include <QEvent>
 #include <QHBoxLayout>
 #include <QIcon>
@@ -31,6 +32,7 @@
 #include <QResizeEvent>
 #include <QShowEvent>
 #include <QStackedWidget>
+#include <QStandardPaths>
 #include <QVBoxLayout>
 
 #ifdef Q_OS_WIN
@@ -298,11 +300,30 @@ RankedPicker MainWindow::buildPicker(const QVector<Stream>& streams) const
 
 void MainWindow::openDirectPlayer(const ScoredStream& stream)
 {
-    // Direct links only this slice. StremioRow withholds the play signal for
-    // non-direct rows already; guard defensively at the seam too.
-    const QString url = stream.url;
-    if (url.isEmpty() || url == QLatin1String("#"))
-        return;
+    // A direct-link stream carries a playable url; a torrent stream carries an
+    // infoHash instead — resolve it through our in-process StreamEngine to a local
+    // HTTP URL the player streams (Phase 4). The engine spins up lazily on first
+    // torrent play, so direct-only sessions never start libtorrent.
+    QString url = stream.url;
+    if (url.isEmpty() || url == QLatin1String("#")) {
+        if (stream.infoHash.isEmpty())
+            return;   // genuinely unsupported here (debrid / nzb / external)
+        if (!m_streamEngine) {
+            const QString cache = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+                                  + QStringLiteral("/torrent-stream");
+            QDir().mkpath(cache);
+            m_streamEngine = std::make_unique<tankoban::tstream::StreamEngine>(cache.toStdString());
+            if (!m_streamEngine->start()) { m_streamEngine.reset(); return; }
+        }
+        std::vector<std::string> trackers;
+        trackers.reserve(stream.sources.size());
+        for (const QString& s : stream.sources) trackers.push_back(s.toStdString());
+        const std::string resolved =
+            m_streamEngine->streamUrl(stream.infoHash.toStdString(), stream.fileIdx, trackers);
+        if (resolved.empty())
+            return;
+        url = QString::fromStdString(resolved);
+    }
 
     if (!m_player) {
         m_player = new VideoPlayerPage(this);

@@ -24,6 +24,7 @@
 #include <libtorrent/torrent_handle.hpp>
 #include <libtorrent/torrent_info.hpp>
 #include <libtorrent/file_storage.hpp>
+#include <libtorrent/torrent_status.hpp>
 #include <libtorrent/download_priority.hpp>
 #include <libtorrent/error_code.hpp>
 namespace lt = libtorrent;
@@ -32,6 +33,7 @@ namespace lt = libtorrent;
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <climits>
 #include <condition_variable>
 #include <cstdint>
 #include <cstdio>
@@ -41,6 +43,7 @@ namespace lt = libtorrent;
 #include <mutex>
 #include <set>
 #include <thread>
+#include <tuple>
 
 namespace tankoban::tstream {
 
@@ -115,6 +118,103 @@ std::vector<std::string> scanTrackers(const std::string& body) {
     return out;
 }
 
+// ── Faithful port of perpetus enginefs/src/backend/priorities.rs (v1 subset) ──
+// Playback intents (mpv direct playback only; HLS/download/probe deferred).
+enum class Intent { DirectInitial, DirectSeek, ContainerMetadata };
+
+constexpr std::int64_t MIN_STARTUP_BYTES                   = 16LL * 1024 * 1024;
+constexpr std::int64_t MAX_STARTUP_WINDOW_BYTES           = 32LL * 1024 * 1024;
+constexpr std::int64_t MAX_SEEK_HOT_WINDOW_BYTES          = 128LL * 1024 * 1024;
+constexpr std::int64_t MAX_WARM_WINDOW_BYTES              = 256LL * 1024 * 1024;
+constexpr std::int64_t MAX_CONTAINER_METADATA_WINDOW_BYTES = 16LL * 1024 * 1024;
+constexpr std::int64_t SMALL_FILE_BYTES                   = 64LL * 1024 * 1024;
+constexpr int MAX_STARTUP_PIECES            = 4;
+constexpr int MAX_SMALL_FILE_STARTUP_PIECES = 32;
+constexpr int MIN_STARTUP_PIECES            = 2;
+constexpr int MIN_SEEK_HOT_PIECES           = 24;
+constexpr int SEEK_IMMEDIATE_PIECES         = 12;
+constexpr int MAX_HOT_PIECES                = 96;
+constexpr int MAX_WARM_PIECES               = 192;
+
+inline std::int64_t containerMetadataStart(std::int64_t fileSize) {
+    if (fileSize == 0) return 0;
+    if (fileSize < SMALL_FILE_BYTES) return fileSize * 95 / 100;
+    return std::min<std::int64_t>(fileSize - 10LL * 1024 * 1024, fileSize * 95 / 100);
+}
+inline bool isContainerMetadata(std::int64_t start, std::int64_t reqLen, std::int64_t fileSize) {
+    return start > 0 && fileSize > 0 && reqLen > 0
+        && reqLen <= MAX_CONTAINER_METADATA_WINDOW_BYTES
+        && start >= containerMetadataStart(fileSize);
+}
+inline int piecesForBytes(std::int64_t bytes, int pieceLen) {
+    if (bytes <= 0 || pieceLen <= 0) return 0;
+    long long p = (bytes + pieceLen - 1) / pieceLen;
+    if (p < 1) p = 1;
+    if (p > INT_MAX) p = INT_MAX;
+    return int(p);
+}
+inline int capPiecesByBytes(int pieces, int pieceLen, std::int64_t maxBytes) {
+    if (pieces <= 0 || maxBytes == 0) return 0;
+    return std::min(pieces, std::max(1, piecesForBytes(maxBytes, pieceLen)));
+}
+inline int dynamicHotWindow(std::int64_t dlRate, int peers) {
+    int hot;
+    if (dlRate > 10LL * 1024 * 1024) hot = 96;
+    else if (dlRate > 5LL * 1024 * 1024) hot = 48;
+    else if (dlRate > 1LL * 1024 * 1024) hot = MIN_SEEK_HOT_PIECES;
+    else hot = 16;
+    if (peers < 3) hot = std::min(hot, MIN_SEEK_HOT_PIECES);
+    return hot;
+}
+inline const char* contentTypeForName(const std::string& name) {
+    std::string lo = name; std::transform(lo.begin(), lo.end(), lo.begin(), ::tolower);
+    auto ends = [&](const char* s){ size_t n = std::strlen(s); return lo.size() >= n && lo.compare(lo.size()-n, n, s) == 0; };
+    if (ends(".mp4") || ends(".m4v")) return "video/mp4";
+    if (ends(".mkv")) return "video/x-matroska";
+    if (ends(".ts"))  return "video/mp2t";
+    if (ends(".avi")) return "video/x-msvideo";
+    if (ends(".mov")) return "video/quicktime";
+    if (ends(".webm")) return "video/webm";
+    return "application/octet-stream";
+}
+// Returns (immediate, hot, warm) piece counts for the read-ahead window.
+inline std::tuple<int,int,int> decideWindow(Intent intent, bool firstByteSent, int pieceLen,
+        std::int64_t fileSize, std::int64_t dlRate, int peers, int currentPiece, int lastPiece) {
+    int immediate = 0, hot = 0, warm = 0;
+    if (intent == Intent::DirectInitial && !firstByteSent) {
+        std::int64_t targetBytes = (fileSize > 0 && fileSize <= SMALL_FILE_BYTES)
+            ? std::min<std::int64_t>(fileSize, MAX_STARTUP_WINDOW_BYTES) : MIN_STARTUP_BYTES;
+        targetBytes = std::max<std::int64_t>(targetBytes, pieceLen);
+        targetBytes = std::min<std::int64_t>(targetBytes, std::max<std::int64_t>(MAX_STARTUP_WINDOW_BYTES, pieceLen));
+        int pieces = int((targetBytes + pieceLen - 1) / pieceLen);
+        int maxStartup = (fileSize > 0 && fileSize <= SMALL_FILE_BYTES)
+            ? std::clamp(piecesForBytes(std::min<std::int64_t>(fileSize, MAX_STARTUP_WINDOW_BYTES), pieceLen), 1, MAX_SMALL_FILE_STARTUP_PIECES)
+            : MAX_STARTUP_PIECES;
+        int minStartup = std::max(1, std::min(MIN_STARTUP_PIECES, maxStartup));
+        pieces = std::clamp(pieces, minStartup, maxStartup);
+        immediate = std::min(pieces, MAX_STARTUP_PIECES);
+        hot = pieces; warm = 0;
+    } else if (intent == Intent::DirectInitial) {
+        hot = dynamicHotWindow(dlRate, peers); immediate = 2; warm = 32;
+    } else if (intent == Intent::DirectSeek) {
+        hot = std::max(dynamicHotWindow(dlRate, peers), MIN_SEEK_HOT_PIECES);
+        immediate = SEEK_IMMEDIATE_PIECES; warm = 32;
+    } else { // ContainerMetadata
+        immediate = 1; hot = 2; warm = 0;
+    }
+    const std::int64_t hotCap = (intent == Intent::DirectInitial && !firstByteSent) ? MAX_STARTUP_WINDOW_BYTES
+                              : (intent == Intent::ContainerMetadata) ? MAX_CONTAINER_METADATA_WINDOW_BYTES
+                              : MAX_SEEK_HOT_WINDOW_BYTES;
+    const std::int64_t warmCap = (intent == Intent::ContainerMetadata) ? 0 : MAX_WARM_WINDOW_BYTES;
+    hot  = capPiecesByBytes(hot,  pieceLen, hotCap);
+    warm = capPiecesByBytes(warm, pieceLen, warmCap);
+    const int remaining = lastPiece - currentPiece + 1;
+    hot  = std::min(std::clamp(hot, 0, MAX_HOT_PIECES), remaining);
+    warm = std::min(std::clamp(warm, 0, MAX_WARM_PIECES), std::max(0, remaining - hot));
+    immediate = std::max(0, std::min(immediate, hot));
+    return std::make_tuple(immediate, hot, warm);
+}
+
 } // namespace
 #endif // HAS_LIBTORRENT
 
@@ -138,6 +238,7 @@ struct StreamEngine::Impl {
         std::condition_variable cv;
         std::set<int> havePieces;
         std::atomic<bool> metadataReady{false};
+        std::atomic<bool> firstByteSent{false};   // expands the initial window after first byte
         int prioritizedFile = -1;
     };
     std::mutex mapMtx;
@@ -199,6 +300,33 @@ struct StreamEngine::Impl {
                && t->metadataReady.load();
     }
 
+    // Diagnostic: periodic per-torrent swarm health (peers/seeds/rate/progress).
+    void logStats() {
+        std::lock_guard<std::mutex> lk(mapMtx);
+        for (auto& kv : torrents) {
+            auto& t = kv.second;
+            if (!t->handle.is_valid()) continue;
+            lt::torrent_status st = t->handle.status();
+            const char* state = "?";
+            switch (st.state) {
+                case lt::torrent_status::checking_files:        state = "checking";        break;
+                case lt::torrent_status::downloading_metadata:  state = "metadata";        break;
+                case lt::torrent_status::downloading:           state = "downloading";     break;
+                case lt::torrent_status::finished:              state = "finished";        break;
+                case lt::torrent_status::seeding:               state = "seeding";         break;
+                case lt::torrent_status::checking_resume_data:  state = "checking_resume"; break;
+                default: break;
+            }
+            logln("stats " + kv.first.substr(0, 8) + " state=" + state
+                + " peers=" + std::to_string(st.num_peers)
+                + " seeds=" + std::to_string(st.num_seeds)
+                + " conns=" + std::to_string(st.num_connections)
+                + " dl=" + std::to_string(st.download_rate / 1024) + "KB/s"
+                + " done=" + std::to_string((long long)(st.total_done / (1024 * 1024))) + "MB"
+                + " prog=" + std::to_string(int(st.progress * 100)) + "%");
+        }
+    }
+
     static int guessFileIdx(const lt::torrent_info& ti) {
         const auto& fs = ti.files();
         int best = -1; std::int64_t bestSz = -1;
@@ -209,18 +337,32 @@ struct StreamEngine::Impl {
         return best;
     }
 
-    void applyDeadlines(const std::shared_ptr<Torrent>& t, int head, int lastPiece) {
-        const int WINDOW = 48;
-        for (int i = 0; i < WINDOW; ++i) {
-            int p = head + i;
+    // Faithful port of PlaybackPriorityPolicy::decide + assignment_for: set the
+    // deadline + priority bands (immediate prio7, hot prio4, warm prio2) across the
+    // read-ahead window anchored at the playback head. Re-aimed as the head advances.
+    void applyWindow(const std::shared_ptr<Torrent>& t, Intent intent, int currentPiece,
+                     bool firstByteSent, int pieceLen, std::int64_t fileSize, int lastPiece) {
+        lt::torrent_status st = t->handle.status();
+        const auto win = decideWindow(intent, firstByteSent, pieceLen, fileSize,
+                                      st.download_rate, st.num_peers, currentPiece, lastPiece);
+        const int immediate = std::get<0>(win), hot = std::get<1>(win), warm = std::get<2>(win);
+        const int window = hot + warm;
+        for (int d = 0; d < window; ++d) {
+            const int p = currentPiece + d;
             if (p > lastPiece) break;
-            t->handle.set_piece_deadline(lt::piece_index_t{p}, i * 25);
-            if (i < 6) t->handle.piece_priority(lt::piece_index_t{p}, lt::download_priority_t{7});
+            int prio, deadline;
+            if (intent == Intent::ContainerMetadata) { prio = 4; deadline = 150 + d * 50; }
+            else if (d < immediate)                  { prio = 7; deadline = d * 25; }
+            else if (d < hot)                        { prio = 4; deadline = 1500 + d * 150; }
+            else                                     { prio = 2; deadline = 10000 + d * 250; }
+            t->handle.set_piece_deadline(lt::piece_index_t{p}, deadline);
+            t->handle.piece_priority(lt::piece_index_t{p}, lt::download_priority_t(prio));
         }
     }
 
-    bool waitForPieces(const std::shared_ptr<Torrent>& t, int head, int tail, int lastPiece, int timeoutMs) {
-        applyDeadlines(t, head, lastPiece);
+    // Patient wait: block (this worker thread only) until [head..tail] are present,
+    // or timeout. cv woken by piece_finished_alert. Does NOT touch deadlines.
+    bool waitPieces(const std::shared_ptr<Torrent>& t, int head, int tail, int timeoutMs) {
         std::unique_lock<std::mutex> lk(t->mtx);
         return t->cv.wait_for(lk, std::chrono::milliseconds(timeoutMs), [&]{
             if (stop.load()) return true;
@@ -243,8 +385,11 @@ struct StreamEngine::Impl {
 
     void pumpLoop() {
         using namespace std::chrono;
+        auto lastStats = steady_clock::now();
         while (!stop.load()) {
             lt::alert* a = ses->wait_for_alert(milliseconds(25));
+            auto now = steady_clock::now();
+            if (now - lastStats >= seconds(2)) { lastStats = now; logStats(); }
             if (!a) continue;
             std::vector<lt::alert*> alerts;
             ses->pop_alerts(&alerts);
@@ -322,38 +467,65 @@ struct StreamEngine::Impl {
             t->prioritizedFile = idx;
         }
 
+        const std::string fileName = std::string(fs.file_name(fi));
+
         std::int64_t start = 0, end = fileSize - 1;
         bool hasRange = parseRange(req, start, end);
         if (end < 0 || end >= fileSize) end = fileSize - 1;
         if (start < 0 || start >= fileSize) start = 0;
-        logln((hasRange ? "GET Range " : "GET full ") + hash + "/" + std::to_string(idx) + " "
-              + std::to_string(start) + "-" + std::to_string(end));
+        const std::int64_t reqLen = end - start + 1;
 
-        t->handle.clear_piece_deadlines();
+        // Classify the request the way perpetus/Stremio do — by offset, not heuristics.
+        Intent intent;
+        if (start == 0)                                        intent = Intent::DirectInitial;
+        else if (isContainerMetadata(start, reqLen, fileSize)) intent = Intent::ContainerMetadata;
+        else                                                   intent = Intent::DirectSeek;
+        const int curPiece = int((fileAbsOffset + start) / pieceLen);
+        logln(std::string(hasRange ? "GET Range " : "GET full ") + hash.substr(0, 8) + "/"
+              + std::to_string(idx) + " " + std::to_string(start) + "-" + std::to_string(end)
+              + " intent=" + (intent == Intent::DirectInitial ? "initial"
+                            : intent == Intent::DirectSeek ? "seek" : "meta"));
 
-        std::int64_t length = end - start + 1;
-        char hdr[512];
+        // Only a genuine seek refocuses the swarm — clear stale deadlines then.
+        // Initial / container-metadata / reconnects do NOT clear (clearing every
+        // request thrashes the scheduler — that was a root cause of the stall).
+        if (intent == Intent::DirectSeek) t->handle.clear_piece_deadlines();
+        applyWindow(t, intent, curPiece, t->firstByteSent.load(), pieceLen, fileSize, lastPiece);
+
+        // Short, NON-FATAL readiness wait before headers (perpetus pattern): give the
+        // head a moment, then send headers regardless. The real waiting is the
+        // patient body below — which never closes on a stall (closing early was what
+        // triggered mpv's reconnect storm).
+        waitPieces(t, curPiece, curPiece, intent == Intent::DirectInitial ? 2000 : 750);
+
+        char hdr[640];
         int hlen = std::snprintf(hdr, sizeof hdr,
-            "HTTP/1.1 %s\r\nContent-Type: video/mp4\r\nAccept-Ranges: bytes\r\n%s%s%s"
+            "HTTP/1.1 %s\r\nContent-Type: %s\r\nAccept-Ranges: bytes\r\n%s%s%s"
             "Content-Length: %lld\r\nConnection: close\r\n\r\n",
             hasRange ? "206 Partial Content" : "200 OK",
+            contentTypeForName(fileName),
             hasRange ? "Content-Range: bytes " : "",
             hasRange ? (std::to_string(start)+"-"+std::to_string(end)+"/"+std::to_string(fileSize)).c_str() : "",
             hasRange ? "\r\n" : "",
-            (long long)length);
+            (long long)reqLen);
         if (!sendAll(c, hdr, hlen)) { closesocket(c); return; }
 
+        // Patient body: stream chunk-by-chunk; wait for each chunk's pieces with a
+        // generous cap and NEVER close on a short stall. Re-aim the window at the
+        // advancing head each chunk (read-ahead follows playback).
         const int CHUNK = 256 * 1024;
         std::vector<char> body(CHUNK);
         std::int64_t pos = start;
         while (pos <= end && !stop.load()) {
-            std::int64_t chunkEnd = std::min<std::int64_t>(pos + CHUNK - 1, end);
-            int n = int(chunkEnd - pos + 1);
-            int head = int((fileAbsOffset + pos)      / pieceLen);
-            int tail = int((fileAbsOffset + chunkEnd) / pieceLen);
-            if (!waitForPieces(t, head, tail, lastPiece, 30000)) { logln("piece wait TIMEOUT"); break; }
+            const std::int64_t chunkEnd = std::min<std::int64_t>(pos + CHUNK - 1, end);
+            const int n = int(chunkEnd - pos + 1);
+            const int head = int((fileAbsOffset + pos)      / pieceLen);
+            const int tail = int((fileAbsOffset + chunkEnd) / pieceLen);
+            applyWindow(t, intent, head, t->firstByteSent.load(), pieceLen, fileSize, lastPiece);
+            if (!waitPieces(t, head, tail, 120000)) { logln("piece wait TIMEOUT (120s) — giving up"); break; }
             if (!readFileBytes(t, filePath, pos, body.data(), n)) { logln("disk read FAILED"); break; }
-            if (!sendAll(c, body.data(), n)) break;
+            if (!sendAll(c, body.data(), n)) break;   // client closed (e.g. seek) — fine
+            t->firstByteSent.store(true);
             pos += n;
         }
         closesocket(c);

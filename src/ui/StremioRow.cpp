@@ -261,7 +261,8 @@ StremioRow::StremioRow(QWidget* parent)
     row->addWidget(actions, 0, Qt::AlignVCenter);
 
     connect(m_play, &QPushButton::clicked, this, [this]() {
-        const bool playable = !m_stream.url.isEmpty() && m_stream.url != QStringLiteral("#");
+        const bool playable = (!m_stream.url.isEmpty() && m_stream.url != QStringLiteral("#"))
+                              || !m_stream.infoHash.isEmpty();   // torrents stream via StreamEngine
         if (playable)
             emit playRequested(m_stream);
     });
@@ -324,10 +325,12 @@ void StremioRow::setStream(const ScoredStream& stream, bool failed, const QStrin
 
     rebuildBadges(streamBadges(stream));
 
-    const bool playable = !stream.url.isEmpty() && stream.url != QStringLiteral("#");
+    const bool hasDirectUrl = !stream.url.isEmpty() && stream.url != QStringLiteral("#");
+    const bool isTorrent = !stream.infoHash.isEmpty();
+    const bool playable = hasDirectUrl || isTorrent;   // torrents now stream via StreamEngine
 
-    m_copyLink = playable ? stream.url
-                          : (!stream.externalUrl.isEmpty() ? stream.externalUrl : QString());
+    m_copyLink = hasDirectUrl ? stream.url
+                              : (!stream.externalUrl.isEmpty() ? stream.externalUrl : QString());
     m_copy->setVisible(!m_copyLink.isEmpty());
     m_copied = false;
     m_copy->setIcon(renderIcon(kCopyPath, QColor(0x8b, 0x90, 0x9b), 16, false));
@@ -346,11 +349,11 @@ void StremioRow::setStream(const ScoredStream& stream, bool failed, const QStrin
     if (failed) {
         status = QStringLiteral("Unavailable, try another.");
         muted = false;
+    } else if (isTorrent && !hasDirectUrl) {
+        status = QStringLiteral("Torrent · P2P stream");
     } else if (!playable) {
         if (stream.url == QStringLiteral("#"))
             status = QStringLiteral("Configure addon");
-        else if (!stream.infoHash.isEmpty())
-            status = QStringLiteral("Torrent source — resolver later");
         else if (!stream.externalUrl.isEmpty())
             status = QStringLiteral("External source");
         else if (!stream.ytId.isEmpty())
