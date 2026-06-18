@@ -44,6 +44,8 @@ inline QString navSvgInner(const QString& id)
         return QStringLiteral("<path d='m15 18-6-6 6-6'/>");
     if (id == QLatin1String("chev-right"))
         return QStringLiteral("<path d='m9 18 6-6-6-6'/>");
+    if (id == QLatin1String("chev-up"))
+        return QStringLiteral("<path d='m18 15-6-6-6 6'/>");
     if (id == QLatin1String("bookmark"))
         return QStringLiteral("<path d='m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z'/>");
     if (id == QLatin1String("play")) // lucide Play (filled via navIcon's `filled` flag)

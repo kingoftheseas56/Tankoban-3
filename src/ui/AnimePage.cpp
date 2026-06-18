@@ -4,6 +4,7 @@
 
 #include "core/JikanClient.h"
 #include "ui/AnimeHero.h"
+#include "ui/BackToTop.h"
 #include "ui/CatalogRow.h"
 
 #include <QFrame>
@@ -142,6 +143,8 @@ AnimePage::AnimePage(QWidget* parent)
         else
             m_jikan->fetchRow(def.key, def.path);
     }
+
+    new BackToTop(scroll, this); // Harbor anime.tsx renders <BackToTop> for the route
 }
 
 void AnimePage::onRow(const QString& key, const QVector<MetaItem>& items)

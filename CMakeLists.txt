@@ -92,6 +92,8 @@ qt_add_executable(Tankoban3
     src/ui/PosterCard.cpp
     src/ui/CatalogRow.h
     src/ui/CatalogRow.cpp
+    src/ui/BackToTop.h
+    src/ui/BackToTop.cpp
     src/ui/FeaturedHero.h
     src/ui/FeaturedHero.cpp
     src/ui/DetailHero.h

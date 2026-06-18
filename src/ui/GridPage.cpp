@@ -2,6 +2,7 @@
 
 #include "ui/GridPage.h"
 
+#include "ui/BackToTop.h"
 #include "ui/FlowLayout.h"
 #include "ui/Icons.h"
 #include "ui/PosterCard.h"
@@ -89,6 +90,8 @@ GridPage::GridPage(QWidget* parent)
     col->addStretch(1);
 
     m_scroll->setWidget(m_content);
+
+    new BackToTop(m_scroll, this); // Harbor grid.tsx renders <BackToTop>
 
     connect(m_scroll->verticalScrollBar(), &QScrollBar::valueChanged, this,
             [this]() { updateVisible(); });
