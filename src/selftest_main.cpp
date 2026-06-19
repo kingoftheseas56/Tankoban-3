@@ -3,6 +3,7 @@
 #include "util/TimeFormat.h"
 #include "util/VolumeCurve.h"
 #include "ui/StreamRowPaint.h"
+#include "ui/SourceListModel.h"
 #include <cstdio>
 #include <cmath>
 
@@ -24,6 +25,14 @@ static void checkNear(double got, double want, const char* label)
 }
 
 static void checkBool(bool got, bool want, const char* label)
+{
+    if (got != want) {
+        std::printf("FAIL: %s got %d want %d\n", label, got, want);
+        ++failures;
+    }
+}
+
+static void checkInt(int got, int want, const char* label)
 {
     if (got != want) {
         std::printf("FAIL: %s got %d want %d\n", label, got, want);
@@ -91,6 +100,32 @@ int main()
         ScoredStream dead;
         dead.url = "#";
         checkBool(isPlayable(dead), false, "placeholder not playable");
+    }
+
+    // ---- SourceListModel incremental merge (Task 2) ----
+    {
+        using namespace tankoban;
+        auto mk = [](const char* addon, const char* hash, int score) {
+            ScoredStream s; s.addonId = addon; s.infoHash = hash; s.fileIdx = 0; s.score = score; return s;
+        };
+        SourceListModel m;
+        m.setStreams({ mk("a", "h1", 10), mk("a", "h2", 20) });
+        checkInt(m.rowCount(), 2, "merge p1 count");
+        checkInt(m.rankAt(0), 0, "h1 rank0 preserved");
+
+        // p2: keep h1 (updated score), drop h2, add h3 -> rows: h1, h3.
+        m.setStreams({ mk("a", "h1", 15), mk("a", "h3", 30) });
+        checkInt(m.rowCount(), 2, "merge p2 count");
+        checkInt(m.at(0).score, 15, "h1 updated in place");
+        check(m.at(1).infoHash, "h3");   // h3 appended after h2 removed
+
+        // dedupe: duplicate key in one partial -> one row.
+        m.clear();
+        m.setStreams({ mk("a", "h1", 10), mk("a", "h1", 20) });
+        checkInt(m.rowCount(), 1, "dedupe by key");
+
+        m.clear();
+        checkInt(m.rowCount(), 0, "clear");
     }
 
     std::printf(failures ? "SELFTEST FAILED (%d)\n" : "SELFTEST OK\n", failures);
