@@ -26,6 +26,8 @@ qt_add_executable(Tankoban3
     src/engine/PlaybackClock.cpp
     src/player/PlayerView.h
     src/player/PlayerView.cpp
+    src/player/PlayerLoadingOverlay.h
+    src/player/PlayerLoadingOverlay.cpp
     src/player/HotkeyDispatcher.h
     src/player/HotkeyDispatcher.cpp
     src/util/Theme.h
@@ -159,6 +161,38 @@ add_custom_command(TARGET Tankoban3 POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${LIBMPV_DIR}/bin/libmpv-2.dll "$<TARGET_FILE_DIR:Tankoban3>"
     COMMENT "Deploying libmpv-2.dll")
+
+# ── libtorrent (Phase 2: native torrent streaming engine — vendored STATIC) ───
+# Mirrors Tankoban 2's PROVEN static recipe for this machine: static
+# torrent-rasterbar.lib + header-only Boost + static OpenSSL at C:/tools. STATIC
+# => nothing to deploy. Gated: if absent, HAS_LIBTORRENT stays undefined, the
+# engine code compiles to a no-op stub, and the app still builds + runs.
+target_sources(Tankoban3 PRIVATE
+    src/core/torrentstream/LtLinkSmoke.h
+    src/core/torrentstream/LtLinkSmoke.cpp
+    src/core/torrentstream/StreamEngine.h
+    src/core/torrentstream/StreamEngine.cpp)
+
+set(LIBTORRENT_ROOT   "C:/tools/libtorrent-2.0-msvc" CACHE PATH "libtorrent MSVC install")
+set(BOOST_ROOT        "C:/tools/boost-1.84.0"        CACHE PATH "Boost headers")
+set(OPENSSL_MSVC_ROOT "C:/tools/openssl-msvc"        CACHE PATH "OpenSSL MSVC install")
+find_path(LIBTORRENT_INCLUDE_DIR libtorrent/session.hpp HINTS "${LIBTORRENT_ROOT}/include")
+find_library(LIBTORRENT_LIBRARY torrent-rasterbar HINTS "${LIBTORRENT_ROOT}/lib")
+find_path(BOOST_INCLUDE_DIR boost/version.hpp HINTS "${BOOST_ROOT}")
+if(LIBTORRENT_INCLUDE_DIR AND LIBTORRENT_LIBRARY AND BOOST_INCLUDE_DIR)
+    message(STATUS "TB3: libtorrent found -> ${LIBTORRENT_LIBRARY}")
+    target_include_directories(Tankoban3 PRIVATE
+        "${LIBTORRENT_INCLUDE_DIR}" "${BOOST_INCLUDE_DIR}" "${OPENSSL_MSVC_ROOT}/include")
+    target_compile_definitions(Tankoban3 PRIVATE
+        HAS_LIBTORRENT=1 TORRENT_USE_OPENSSL BOOST_ALL_NO_LIB _WIN32_WINNT=0x0A00)
+    target_link_libraries(Tankoban3 PRIVATE
+        "${LIBTORRENT_LIBRARY}"
+        "${OPENSSL_MSVC_ROOT}/lib/libssl.lib"
+        "${OPENSSL_MSVC_ROOT}/lib/libcrypto.lib"
+        ws2_32 mswsock crypt32 iphlpapi bcrypt)
+else()
+    message(WARNING "TB3: libtorrent NOT found at C:/tools — torrent streaming engine disabled.")
+endif()
 
 # Deploy the Qt WebP image-format plugin — this Qt build ships none, and metahub
 # serves many posters as WebP (they silently fail to decode without it). The

@@ -20,6 +20,7 @@
 #include "ui/VideoPlayerPage.h"
 
 #include <QCursor>
+#include <QDir>
 #include <QEvent>
 #include <QHBoxLayout>
 #include <QIcon>
@@ -32,6 +33,7 @@
 #include <QResizeEvent>
 #include <QShowEvent>
 #include <QStackedWidget>
+#include <QStandardPaths>
 #include <QVBoxLayout>
 
 #ifdef Q_OS_WIN
@@ -232,6 +234,15 @@ MainWindow::MainWindow(QWidget* parent)
 
     m_content->setCurrentIndex(m_pageIndex.value(QStringLiteral("home")));
 
+    // Pre-create the player page (and its QOpenGLWidget) BEFORE show(), so the
+    // raster->GL surface flip + top-level HWND recreation happen during initial
+    // window bring-up rather than dissolving the window on the first stream play
+    // (Agent 0 deep-research pattern). mpv stays lazy until play(); the HWND
+    // recreation is caught by changeEvent(WinIdChange) which re-applies the styling.
+    // (The A/B diagnostic proved GL compositing is NOT the source-list jitter cause —
+    // that was the rebuild churn, now fixed by StreamList keyed reconciliation.)
+    ensurePlayerPage();
+
     // winId() forces native HWND creation so the Win32 style re-add has a handle.
     applyFramelessWin32Style();
     updateMaxRestoreIcon();
@@ -314,17 +325,32 @@ RankedPicker MainWindow::buildPicker(const QVector<Stream>& streams) const
 
 void MainWindow::openDirectPlayer(const ScoredStream& stream)
 {
-    // Direct links only this slice. StremioRow withholds the play signal for
-    // non-direct rows already; guard defensively at the seam too.
-    const QString url = stream.url;
-    if (url.isEmpty() || url == QLatin1String("#"))
-        return;
-
-    if (!m_player) {
-        m_player = new VideoPlayerPage(this);
-        m_playerIndex = m_content->addWidget(m_player);   // a real page in the shell
-        connect(m_player, &VideoPlayerPage::backRequested, this, [this] { closePlayer(); });
+    // A direct-link stream carries a playable url; a torrent stream carries an
+    // infoHash instead — resolve it through our in-process StreamEngine to a local
+    // HTTP URL the player streams (Phase 4). The engine spins up lazily on first
+    // torrent play, so direct-only sessions never start libtorrent.
+    QString url = stream.url;
+    if (url.isEmpty() || url == QLatin1String("#")) {
+        if (stream.infoHash.isEmpty())
+            return;   // genuinely unsupported here (debrid / nzb / external)
+        if (!m_streamEngine) {
+            const QString cache = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+                                  + QStringLiteral("/torrent-stream");
+            QDir().mkpath(cache);
+            m_streamEngine = std::make_unique<tankoban::tstream::StreamEngine>(cache.toStdString());
+            if (!m_streamEngine->start()) { m_streamEngine.reset(); return; }
+        }
+        std::vector<std::string> trackers;
+        trackers.reserve(stream.sources.size());
+        for (const QString& s : stream.sources) trackers.push_back(s.toStdString());
+        const std::string resolved =
+            m_streamEngine->streamUrl(stream.infoHash.toStdString(), stream.fileIdx, trackers);
+        if (resolved.empty())
+            return;
+        url = QString::fromStdString(resolved);
     }
+
+    ensurePlayerPage();
 
     PlayerRequest req;
     req.url = url;
@@ -345,6 +371,15 @@ void MainWindow::openDirectPlayer(const ScoredStream& stream)
     if (m_topBar) m_topBar->hide();
     m_content->setCurrentIndex(m_playerIndex);
     m_player->play(req);
+}
+
+void MainWindow::ensurePlayerPage()
+{
+    if (m_player)
+        return;
+    m_player = new VideoPlayerPage(this);
+    m_playerIndex = m_content->addWidget(m_player);   // a real page in the shell
+    connect(m_player, &VideoPlayerPage::backRequested, this, [this] { closePlayer(); });
 }
 
 void MainWindow::closePlayer()
@@ -495,8 +530,16 @@ void MainWindow::showEvent(QShowEvent* event)
 void MainWindow::changeEvent(QEvent* event)
 {
     QWidget::changeEvent(event);
-    if (event->type() == QEvent::WindowStateChange)
+    if (event->type() == QEvent::WindowStateChange) {
         updateMaxRestoreIcon();
+    } else if (event->type() == QEvent::WinIdChange && m_chromeApplied) {
+        // The QOpenGLWidget composite flips the top-level raster->GL surface and
+        // recreates the native HWND, which silently drops our frameless Win32 styling
+        // (the window would briefly revert to an OS frame / dissolve). Re-assert it on
+        // every HWND change so the frameless chrome survives the GL surface flip.
+        applyFramelessWin32Style();
+        updateMaxRestoreIcon();
+    }
 }
 
 #ifdef Q_OS_WIN

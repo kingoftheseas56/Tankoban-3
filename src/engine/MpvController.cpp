@@ -160,6 +160,8 @@ void MpvController::load(const QString& url, double startSec)
     m_snap.chapters.clear();
     m_snap.positionSec = 0;
     m_snap.durationSec = 0;
+    m_snap.bufferedSec = 0;
+    m_snap.buffering = false;
     m_snap.errorCode = PlayerSnapshot::None;
     m_snap.errorMessage.clear();
     emitSnapshot();
@@ -240,6 +242,12 @@ void MpvController::observeProperties()
     mpv_observe_property(m_mpv, 13, "af",           MPV_FORMAT_STRING);
     mpv_observe_property(m_mpv, 14, "dwidth",       MPV_FORMAT_INT64);
     mpv_observe_property(m_mpv, 15, "dheight",      MPV_FORMAT_INT64);
+    // Real buffering signal: paused-for-cache flips true when mpv stalls waiting on
+    // the cache (cache-pause=yes is set above), demuxer-cache-duration is the seconds
+    // of media buffered ahead of the play head. These feed PlayerSnapshot.buffering /
+    // bufferedSec (previously dead) for the loader overlay + ghost-scrub guard.
+    mpv_observe_property(m_mpv, 16, "paused-for-cache",       MPV_FORMAT_FLAG);
+    mpv_observe_property(m_mpv, 17, "demuxer-cache-duration", MPV_FORMAT_DOUBLE);
 }
 
 // ── event pump (GUI thread) ──────────────────────────────────────────────────
@@ -347,6 +355,8 @@ void MpvController::handlePropertyChange(void* p)
     else if (!std::strcmp(n, "af"))          { const char* s = d ? *(char**)d : nullptr; m_snap.audioNormalize = s && std::strstr(s, "dynaudnorm"); }
     else if (!std::strcmp(n, "dwidth"))      { if (d) m_snap.videoWidth = (int)*(int64_t*)d; }
     else if (!std::strcmp(n, "dheight"))     { if (d) m_snap.videoHeight = (int)*(int64_t*)d; }
+    else if (!std::strcmp(n, "paused-for-cache"))       { if (d) m_snap.buffering = (*(int*)d) != 0; }
+    else if (!std::strcmp(n, "demuxer-cache-duration")) { if (d) m_snap.bufferedSec = *(double*)d; }
     else return;   // sub-text / sub-start ignored (libass renders natively)
 
     emitSnapshot();

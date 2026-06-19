@@ -301,6 +301,7 @@ StreamService::StreamService(AddonRegistry* registry,
     , m_registry(registry)
     , m_nam(nam)
 {
+    m_partialClock.start();
 }
 
 QStringList StreamService::buildStreamIds(const QString& metaId,
@@ -349,6 +350,7 @@ void StreamService::fetchStreams(const MetaDetail& meta, const EpisodeItem* epis
     const int generation = m_generation;
     m_pendingRequests = 0;
     m_accumulated.clear();
+    m_lastPartialMs = 0;   // first partial of a fresh fetch always emits
 
     const QStringList ids = buildStreamIds(meta.id, episode, meta.id, QString());
     const QString type = meta.type;
@@ -430,7 +432,15 @@ void StreamService::fetchFromAddon(const InstalledAddon& addon,
         for (const QJsonValue& value : streams)
             m_accumulated.push_back(mapStream(value.toObject(), addon));
 
-        emit streamsPartial(m_accumulated);
+        // Throttle partials to Harbor's ~250ms cadence (pipeline.ts emitPartial):
+        // each partial re-parses/re-scores/re-ranks + rebuilds the UI list, so firing
+        // on every addon reply pegs the GUI thread on heavy-source titles. Dropped
+        // partials are harmless — finishOneRequest's streamsReady carries the full set.
+        const qint64 now = m_partialClock.elapsed();
+        if (now - m_lastPartialMs >= 250) {
+            m_lastPartialMs = now;
+            emit streamsPartial(m_accumulated);
+        }
 
         cleanupReply();
         finishOneRequest(generation);

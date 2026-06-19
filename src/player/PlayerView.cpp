@@ -4,6 +4,7 @@
 #include "engine/MpvController.h"
 #include "engine/MpvGlWidget.h"
 #include "engine/PlaybackClock.h"
+#include "player/PlayerLoadingOverlay.h"
 
 #include <QApplication>
 #include <QMouseEvent>
@@ -68,9 +69,17 @@ PlayerView::PlayerView(QWidget* parent) : QWidget(parent)
     connect(m_clickTimer, &QTimer::timeout, this, &PlayerView::playPauseToggle);
 
     connect(m_controller, &MpvController::snapshotChanged, this, [this](const PlayerSnapshot& s) {
+        // Sticky everPlayed: real frames are flowing once we have a duration AND the
+        // play head has advanced past the first moment (Harbor use-ever-played.ts).
+        if (s.durationSec > 0.0 && s.positionSec > 0.3)
+            m_everPlayed = true;
         PlaybackClock::instance().onSnapshot(
-            s.positionSec, s.bufferedSec, s.status == PlayerSnapshot::Playing, s.rate);
+            s.positionSec, s.bufferedSec, s.status == PlayerSnapshot::Playing, s.rate, s.buffering);
         if (m_chrome) m_chrome->setSnapshot(s);
+        if (m_loader)
+            m_loader->applySnapshot(m_everPlayed, s.buffering, s.bufferedSec, s.durationSec,
+                                    s.status == PlayerSnapshot::Ended,
+                                    s.status == PlayerSnapshot::Error);
     });
 
     // Parent to the GL widget so Qt composites the chrome on top of the video.
@@ -93,13 +102,34 @@ PlayerView::PlayerView(QWidget* parent) : QWidget(parent)
     connect(m_chrome, &TransportBar::speedRequested, m_controller, &MpvController::setRate);
     connect(m_chrome, &TransportBar::fullscreenRequested, this, &PlayerView::toggleFullscreen);
 
+    // Loading / buffering cover, above the chrome so the warm-up takeover hides it.
+    m_loader = new tankoban::PlayerLoadingOverlay(m_video);
+    m_loader->setGeometry(m_video->rect());
+    m_loader->raise();
+    connect(m_loader, &tankoban::PlayerLoadingOverlay::cancelRequested,
+            this, [this] { emit backRequested(); });
+
     qApp->installEventFilter(new HotkeyDispatcher(this, this));
 }
 
-void PlayerView::play(const QString& url, double startSec) { m_controller->load(url, startSec); }
+void PlayerView::play(const QString& url, double startSec)
+{
+    m_everPlayed = false;
+    if (m_loader) {
+        // Local engine / proxy URL (torrent stream) reads "Preparing stream"; a remote
+        // direct URL reads "Connecting". Show the warm-up cover immediately so there is
+        // never a black/empty stage between handoff and the first frame.
+        m_loader->setLocalEngine(url.contains(QStringLiteral("127.0.0.1"))
+                                 || url.contains(QStringLiteral("localhost")));
+        m_loader->applySnapshot(/*everPlayed=*/false, /*buffering=*/false, /*bufferedSec=*/0.0,
+                                /*durationSec=*/0.0, /*ended=*/false, /*error=*/false);
+    }
+    m_controller->load(url, startSec);
+}
 void PlayerView::setTitleInfo(const QString& title, const QString& subtitle)
 {
     if (m_chrome) m_chrome->setTitleInfo(title, subtitle, false);
+    if (m_loader) m_loader->setTitle(title, subtitle);
 }
 PlayerSnapshot PlayerView::snap() const { return m_controller->snapshot(); }
 
@@ -145,6 +175,7 @@ void PlayerView::resizeEvent(QResizeEvent* e)
 {
     if (m_video) m_video->setGeometry(rect());
     if (m_chrome && m_video) m_chrome->setGeometry(m_video->rect());
+    if (m_loader && m_video) m_loader->setGeometry(m_video->rect());
     QWidget::resizeEvent(e);
 }
 

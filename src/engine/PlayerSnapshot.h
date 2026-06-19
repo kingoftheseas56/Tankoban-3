@@ -20,8 +20,8 @@ struct Chapter { QString title; double startSec = 0.0; };
 
 struct PlayerSnapshot {
     enum Status { Idle, Loading, Ready, Playing, Paused, Ended, Error } status = Idle;
-    double positionSec = 0, durationSec = 0, bufferedSec = 0; // bufferedSec dead (§0.1 #3)
-    bool   buffering = false;                                  // dead (never written)
+    double positionSec = 0, durationSec = 0, bufferedSec = 0; // bufferedSec = demuxer-cache-duration (sec ahead)
+    bool   buffering = false;                                  // = mpv paused-for-cache (real stall)
     double volume = 1.0;        // 0..6 (= mpv volume/100)
     bool   muted = false;
     double rate = 1.0;          // optimistic; mpv `speed` is not observed

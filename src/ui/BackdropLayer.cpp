@@ -58,6 +58,8 @@ void BackdropLayer::setSource(const QString& imageUrl)
 
     m_source = upgraded;
     m_cachedPixmap = QPixmap();
+    m_scaledCache = QPixmap();   // invalidate the scaled cache for the new source
+    m_scaledForSize = QSize();
     update();
 
     if (m_source.isEmpty())
@@ -80,6 +82,8 @@ void BackdropLayer::setSource(const QString& imageUrl)
         if (!image.loadFromData(reply->readAll()))
             return;
         self->m_cachedPixmap = QPixmap::fromImage(image);
+        self->m_scaledCache = QPixmap();   // force one rescale at the next paint
+        self->m_scaledForSize = QSize();
         self->update();
     });
 }
@@ -93,12 +97,18 @@ void BackdropLayer::paintEvent(QPaintEvent*)
 
     if (!m_cachedPixmap.isNull()) {
         const QSize target(qRound(r.width() * 1.05), qRound(r.height() * 1.05));
-        QPixmap scaled = m_cachedPixmap.scaled(target, Qt::KeepAspectRatioByExpanding,
-                                               Qt::SmoothTransformation);
-        const QPoint topLeft(r.center().x() - scaled.width() / 2,
-                             r.center().y() - scaled.height() / 2);
+        // Rescale only when the target size changed; otherwise reuse the cached
+        // bitmap. This turns every repaint (each scroll frame) from an expensive
+        // full-image bicubic scale into a cheap blit.
+        if (m_scaledCache.isNull() || m_scaledForSize != target) {
+            m_scaledCache = m_cachedPixmap.scaled(target, Qt::KeepAspectRatioByExpanding,
+                                                  Qt::SmoothTransformation);
+            m_scaledForSize = target;
+        }
+        const QPoint topLeft(r.center().x() - m_scaledCache.width() / 2,
+                             r.center().y() - m_scaledCache.height() / 2);
         p.setOpacity(0.50);
-        p.drawPixmap(topLeft, scaled);
+        p.drawPixmap(topLeft, m_scaledCache);
         p.setOpacity(1.0);
     }
 

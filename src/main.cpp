@@ -8,12 +8,21 @@
 #include "ui/Theme.h"
 #include "player/PlayerView.h"
 #include "engine/MpvController.h"
+#include "core/torrentstream/LtLinkSmoke.h"
+#include "core/torrentstream/StreamEngine.h"
 
 #include <QApplication>
+#include <QDir>
+#include <QFont>
 #include <QFileInfo>
 #include <QScreen>
+#include <QStandardPaths>
+#include <QThread>
 #include <QTimer>
 #include <QUrl>
+
+#include <cstdio>
+#include <memory>
 
 namespace {
 
@@ -55,7 +64,65 @@ int main(int argc, char** argv)
     QApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("Tankoban 3"));
     app.setOrganizationName(QStringLiteral("Tankoban"));
+
+    // Render text with grayscale antialiasing instead of sub-pixel (ClearType) AA.
+    // TB3's UI paints text on translucent panels (the source picker list and the
+    // subtitle popup both sit on WA_TranslucentBackground chains over a backdrop).
+    // Sub-pixel AA needs an opaque destination; on a translucent surface it produces
+    // colored-fringe glyphs whose sub-pixel phase shifts on every repaint (scroll,
+    // spinner, backdrop landing) -> the text shimmer/jitter. Grayscale AA is
+    // position-stable on any surface and visually near-identical, and preserves the
+    // translucent design. Set on the app font so it's inherited app-wide.
+    {
+        QFont f = app.font();
+        f.setStyleStrategy(QFont::StyleStrategy(f.styleStrategy() | QFont::NoSubpixelAntialias));
+        app.setFont(f);
+    }
+
     app.setStyleSheet(tankoban::appStyleSheet());
+
+    // Phase 2 (throwaway): prove the vendored libtorrent links + a session
+    // constructs in-process. Env-gated so normal startup is untouched.
+    if (qEnvironmentVariableIsSet("TANKOBAN3_LT_SMOKE")) {
+        tankoban::tstream::ltLinkSmoke();
+        return 0;
+    }
+
+    // Phase 4 debug: headless swarm probe for ONE infoHash. Adds the torrent and
+    // logs per-torrent swarm health (peers/seeds/dl) via the engine pump for ~2 min,
+    // so we can read WHY a specific torrent does/doesn't download. curl the printed
+    // URL to also exercise the head-piece deadline path. Env: TANKOBAN3_STREAM_PROBE=<hash>.
+    if (qEnvironmentVariableIsSet("TANKOBAN3_STREAM_PROBE")) {
+        const QString hash = qEnvironmentVariable("TANKOBAN3_STREAM_PROBE").trimmed();
+        const QString cache = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+                              + QStringLiteral("/torrent-stream");
+        QDir().mkpath(cache);
+        auto eng = std::make_unique<tankoban::tstream::StreamEngine>(cache.toStdString());
+        if (eng->start()) {
+            const std::string url = eng->streamUrl(hash.toStdString(), -1, {});
+            std::fprintf(stdout, "PROBE URL: %s\n", url.c_str());
+            std::fflush(stdout);
+        }
+        QThread::sleep(120);
+        return 0;
+    }
+
+    // Phase 3 (throwaway): run the in-process StreamEngine ALONGSIDE the GUI so a
+    // curl/mpv can hit it while we confirm the UI stays responsive during a piece
+    // wait. Env-gated; kept alive for the whole session in this scope.
+    std::unique_ptr<tankoban::tstream::StreamEngine> streamEngine;
+    if (qEnvironmentVariableIsSet("TANKOBAN3_STREAM_SMOKE")) {
+        const QString cache = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+                              + QStringLiteral("/torrent-stream");
+        QDir().mkpath(cache);
+        streamEngine = std::make_unique<tankoban::tstream::StreamEngine>(cache.toStdString());
+        if (streamEngine->start()) {
+            const std::string url = streamEngine->streamUrl(
+                "08ada5a7a6183aae1e09d831df6748d566095a10", -1, {});
+            std::fprintf(stdout, "STREAM SMOKE URL: %s\n", url.c_str());
+            std::fflush(stdout);
+        }
+    }
 
     // Plan 1 — standalone player demo: TANKOBAN3_PLAYER_DEMO=<url|path> ("1" = default sample).
     if (qEnvironmentVariableIsSet("TANKOBAN3_PLAYER_DEMO")) {

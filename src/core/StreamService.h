@@ -6,6 +6,7 @@
 // the safe minimum candidate IDs available in the Tankoban 3 model.
 #pragma once
 
+#include <QElapsedTimer>
 #include <QObject>
 #include <QStringList>
 #include <QVector>
@@ -72,6 +73,13 @@ private:
     int m_generation = 0;
     int m_pendingRequests = 0;
     QVector<Stream> m_accumulated;
+
+    // Partial-emission throttle (Harbor pipeline.ts emitPartial: drop partials that
+    // land within ~250ms of the last). streamsReady always delivers the full final
+    // set, so dropping intermediate partials never loses streams. m_partialClock is
+    // an app-lifetime monotonic source; m_lastPartialMs resets per fetchStreams.
+    QElapsedTimer m_partialClock;
+    qint64 m_lastPartialMs = 0;
 };
 
 } // namespace tankoban
