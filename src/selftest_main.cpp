@@ -4,6 +4,7 @@
 #include "util/VolumeCurve.h"
 #include "ui/StreamRowPaint.h"
 #include "ui/SourceListModel.h"
+#include "ui/SourceFilterProxy.h"
 #include <cstdio>
 #include <cmath>
 
@@ -126,6 +127,30 @@ int main()
 
         m.clear();
         checkInt(m.rowCount(), 0, "clear");
+    }
+
+    // ---- SourceFilterProxy rank-sort + addon/quality filter (Task 3) ----
+    {
+        using namespace tankoban;
+        auto mk = [](const char* addon, const char* hash, Resolution res) {
+            ScoredStream s; s.addonId = addon; s.infoHash = hash; s.fileIdx = 0; s.resolution = res; return s;
+        };
+        SourceListModel m;
+        // Ranked input order h1,h2,h3 -> model ranks 0,1,2; proxy sorts by RankRole asc.
+        m.setStreams({ mk("a", "h1", Resolution::HD),
+                       mk("b", "h2", Resolution::FourK),
+                       mk("a", "h3", Resolution::FullHD) });
+        SourceFilterProxy proxy;
+        proxy.setSourceModel(&m);
+        // Order preserved (not re-sorted by score): h1, h2, h3.
+        check(proxy.index(0, 0).data(SourceListModel::StreamRole).value<ScoredStream>().infoHash, "h1");
+        check(proxy.index(2, 0).data(SourceListModel::StreamRole).value<ScoredStream>().infoHash, "h3");
+        // Addon "a" (addonUrl empty -> addonInstanceKey == addonId) -> h1, h3.
+        proxy.setAddonFilter("a");
+        checkInt(proxy.rowCount(), 2, "addon filter a");
+        proxy.setAddonFilter("all");
+        proxy.setQualityFilter("4K");
+        checkInt(proxy.rowCount(), 1, "quality filter 4K");
     }
 
     std::printf(failures ? "SELFTEST FAILED (%d)\n" : "SELFTEST OK\n", failures);

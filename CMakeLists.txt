@@ -88,6 +88,8 @@ qt_add_executable(Tankoban3
     src/ui/StreamRowPaint.cpp
     src/ui/SourceListModel.h
     src/ui/SourceListModel.cpp
+    src/ui/SourceFilterProxy.h
+    src/ui/SourceFilterProxy.cpp
     src/ui/StremioRow.h
     src/ui/StremioRow.cpp
     src/ui/StreamList.h
@@ -210,7 +212,7 @@ add_custom_command(TARGET Tankoban3 POST_BUILD
 
 # ── Pure-logic self-test (CTest; no external deps) ───────────────────────────
 enable_testing()
-add_executable(Tankoban3SelfTest src/selftest_main.cpp src/util/TimeFormat.cpp src/util/VolumeCurve.cpp src/ui/StreamRowPaint.cpp src/ui/SourceListModel.cpp)
+add_executable(Tankoban3SelfTest src/selftest_main.cpp src/util/TimeFormat.cpp src/util/VolumeCurve.cpp src/ui/StreamRowPaint.cpp src/ui/SourceListModel.cpp src/ui/SourceFilterProxy.cpp)
 target_link_libraries(Tankoban3SelfTest PRIVATE Qt6::Core Qt6::Gui)
 target_include_directories(Tankoban3SelfTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 add_test(NAME selftest COMMAND Tankoban3SelfTest)
