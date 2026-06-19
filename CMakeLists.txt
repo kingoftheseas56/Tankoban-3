@@ -124,6 +124,8 @@ qt_add_executable(Tankoban3
     src/ui/SourceFilterProxy.cpp
     src/ui/SourceRowDelegate.h
     src/ui/SourceRowDelegate.cpp
+    src/ui/SourceListView.h
+    src/ui/SourceListView.cpp
     src/ui/StremioRow.h
     src/ui/StremioRow.cpp
     src/ui/StreamList.h
