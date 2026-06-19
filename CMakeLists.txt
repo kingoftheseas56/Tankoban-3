@@ -8,9 +8,41 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
+# This app links PREBUILT, RELEASE-ONLY static libs (torrent-rasterbar + OpenSSL at
+# C:/tools — see the libtorrent section below). MSVC refuses to mix debug/release C
+# runtimes in one image, so a normal Debug build cannot link the app (LNK2038
+# _ITERATOR_DEBUG_LEVEL / RuntimeLibrary — 292 mismatches). Pin EVERY config to the
+# release dynamic CRT (/MD) so all configs link the release libs. Debug stays
+# debuggable (/Od /Zi, asserts on); it only drops the debug-heap / iterator checks
+# that require /MDd. This lets CLion's Debug profile build + run the full app
+# (previously impossible) and matches the proven Release deployment.
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
+    string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+    string(REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}")
+    # Qt selects its debug DLLs (Qt6Widgetsd.dll) in a Debug config independently of the
+    # CRT flag above. Since the release-only static libs force the release CRT, map
+    # Debug -> Release for ALL imported targets (Qt, etc.) so the Debug build links the
+    # RELEASE Qt DLLs — matching the release CRT and what windeployqt deploys. App code
+    # stays debuggable (/Od /Zi); only the third-party deps are release.
+    set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG "Release")
+endif()
+
 # Network: the addon engine (Stremio catalog/meta/stream over HTTP).
 # Svg: sidebar nav icons. OpenGL/OpenGLWidgets (libmpv player) get added later.
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network Svg OpenGL OpenGLWidgets)
+
+# windeployqt — deploys the matching Qt DLLs + plugins (and, with --compiler-runtime,
+# the MSVC C++ runtime) next to an exe so it launches from ANY build dir, CLion's
+# included. Discovered once; used as a POST_BUILD step on the app and the self-test.
+if(WIN32)
+    get_target_property(_tb3_qmake Qt6::qmake IMPORTED_LOCATION)
+    get_filename_component(_tb3_qtbin "${_tb3_qmake}" DIRECTORY)
+    find_program(TB3_WINDEPLOYQT NAMES windeployqt HINTS "${_tb3_qtbin}")
+    if(NOT TB3_WINDEPLOYQT)
+        message(WARNING "TB3: windeployqt not found near ${_tb3_qtbin} — exes may only run from the Release out/ dir.")
+    endif()
+endif()
 
 qt_add_executable(Tankoban3
     src/main.cpp
@@ -159,6 +191,11 @@ add_library(libmpv SHARED IMPORTED)
 set_target_properties(libmpv PROPERTIES
     IMPORTED_IMPLIB   ${LIBMPV_DIR}/lib/mpv.lib
     IMPORTED_LOCATION ${LIBMPV_DIR}/bin/libmpv-2.dll
+    # Single-config DLL; expose a Release variant too so CMAKE_MAP_IMPORTED_CONFIG_DEBUG
+    # (Debug -> Release, set near the top) resolves libmpv in the Debug build.
+    IMPORTED_IMPLIB_RELEASE   ${LIBMPV_DIR}/lib/mpv.lib
+    IMPORTED_LOCATION_RELEASE ${LIBMPV_DIR}/bin/libmpv-2.dll
+    IMPORTED_CONFIGURATIONS Release
     INTERFACE_INCLUDE_DIRECTORIES ${LIBMPV_DIR}/include)
 target_link_libraries(Tankoban3 PRIVATE libmpv)
 
@@ -210,10 +247,30 @@ add_custom_command(TARGET Tankoban3 POST_BUILD
             "$<TARGET_FILE_DIR:Tankoban3>/imageformats/qwebp.dll"
     COMMENT "Deploying qwebp.dll (WebP poster decoder)")
 
+# Deploy Qt runtime + MSVC CRT next to the app so CLion's build can launch it directly
+# (build.bat runs windeployqt separately for out/; this also covers CLion's build dir).
+if(WIN32 AND TB3_WINDEPLOYQT)
+    add_custom_command(TARGET Tankoban3 POST_BUILD
+        COMMAND "${TB3_WINDEPLOYQT}" --compiler-runtime --no-translations
+                "$<TARGET_FILE:Tankoban3>"
+        COMMENT "Deploying Qt runtime + CRT next to Tankoban3"
+        VERBATIM)
+endif()
+
 # ── Pure-logic self-test (CTest; no external deps) ───────────────────────────
 enable_testing()
 add_executable(Tankoban3SelfTest src/selftest_main.cpp src/util/TimeFormat.cpp src/util/VolumeCurve.cpp src/ui/StreamRowPaint.cpp src/ui/SourceListModel.cpp src/ui/SourceFilterProxy.cpp)
 target_link_libraries(Tankoban3SelfTest PRIVATE Qt6::Core Qt6::Gui)
 target_include_directories(Tankoban3SelfTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 add_test(NAME selftest COMMAND Tankoban3SelfTest)
+
+# Same Qt runtime + CRT deploy for the self-test, so the test gate runs from CLion's
+# build dir too (otherwise the debug self-test exits 0xC0000135, DLL-not-found).
+if(WIN32 AND TB3_WINDEPLOYQT)
+    add_custom_command(TARGET Tankoban3SelfTest POST_BUILD
+        COMMAND "${TB3_WINDEPLOYQT}" --compiler-runtime --no-translations
+                "$<TARGET_FILE:Tankoban3SelfTest>"
+        COMMENT "Deploying Qt runtime + CRT next to Tankoban3SelfTest"
+        VERBATIM)
+endif()
 
