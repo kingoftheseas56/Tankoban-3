@@ -5,6 +5,7 @@
 // re-score or re-order. Fed by PlayPickerPage::setPicker(RankedPicker.all).
 #pragma once
 
+#include <QHash>
 #include <QVector>
 #include <QWidget>
 
@@ -16,6 +17,8 @@ class QPushButton;
 class QVBoxLayout;
 
 namespace tankoban {
+
+class StremioRow;
 
 class StreamList : public QWidget {
     Q_OBJECT
@@ -35,7 +38,12 @@ signals:
     void streamActivated(const ScoredStream& stream);
 
 private:
-    void rebuildRows();
+    // Keyed incremental reconcile: reuse existing StremioRow widgets across partial
+    // updates / re-ranks instead of tearing them down. Tear-down re-rasterized every
+    // glyph on every partial -> the loading-time text shimmer; reuse keeps stable rows
+    // untouched (Harbor keyed-reconciliation parity) and only ever creates NEW rows,
+    // which also avoids the 500-source synchronous-rebuild freeze.
+    void reconcileRows();
     void rebuildQualityBar();
     void refreshAddonButton();
     void showAddonMenu();
@@ -56,6 +64,11 @@ private:
     QVBoxLayout* m_rowsLayout = nullptr;
     QWidget* m_pending = nullptr;
     QLabel* m_pendingLabel = nullptr;
+
+    // Live row widgets keyed by stream identity (addon + infoHash/url/title), so a
+    // re-rank or partial update reuses the same widget for the same stream instead of
+    // recreating it. The stable rows never repaint -> no shimmer while sources load.
+    QHash<QString, StremioRow*> m_rowByKey;
 };
 
 } // namespace tankoban

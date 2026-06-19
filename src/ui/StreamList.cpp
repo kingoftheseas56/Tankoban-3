@@ -48,6 +48,17 @@ QString addonInstanceKey(const ScoredStream& s)
     return s.addonUrl.isEmpty() ? s.addonId : s.addonUrl.toString();
 }
 
+// Stable per-stream identity for row reuse across re-ranks/partials. Same stream ->
+// same key -> same widget kept (no re-rasterize). Mirrors the StreamService dedupe key.
+QString streamRowKey(const ScoredStream& s)
+{
+    const QString id = !s.infoHash.isEmpty()
+        ? QStringLiteral("h:%1:%2").arg(s.infoHash).arg(s.fileIdx)
+        : (!s.url.isEmpty() ? QStringLiteral("u:%1").arg(s.url)
+                            : QStringLiteral("t:%1").arg(s.title.isEmpty() ? s.name : s.title));
+    return s.addonId + QLatin1Char('|') + id;
+}
+
 QString qualityGroupOf(const ScoredStream& s)
 {
     switch (s.resolution) {
@@ -234,7 +245,7 @@ void StreamList::setStreams(const QVector<ScoredStream>& streams, const Options&
 
     refreshAddonButton();
     rebuildQualityBar(); // validates m_qualityFilter against current groups
-    rebuildRows();
+    reconcileRows();
     updatePending();
 }
 
@@ -245,7 +256,7 @@ void StreamList::clearStreams()
     m_qualityFilter = QStringLiteral("all");
     refreshAddonButton();
     rebuildQualityBar();
-    rebuildRows();
+    reconcileRows();
     updatePending();
 }
 
@@ -306,7 +317,7 @@ void StreamList::showAddonMenu()
     m_addonFilter = key;
     refreshAddonButton();
     rebuildQualityBar(); // groups depend on the addon-filtered set
-    rebuildRows();
+    reconcileRows();
 }
 
 void StreamList::rebuildQualityBar()
@@ -356,7 +367,7 @@ void StreamList::rebuildQualityBar()
                 return;
             m_qualityFilter = key;
             rebuildQualityBar();
-            rebuildRows();
+            reconcileRows();
         });
         m_qualityLayout->addWidget(pill);
     };
@@ -367,20 +378,45 @@ void StreamList::rebuildQualityBar()
     m_qualityLayout->addStretch();
 }
 
-void StreamList::rebuildRows()
+void StreamList::reconcileRows()
 {
-    QLayoutItem* item = nullptr;
-    while ((item = m_rowsLayout->takeAt(0)) != nullptr) {
-        if (item->widget())
-            item->widget()->deleteLater();
-        delete item;
-    }
-    for (const ScoredStream& s : visibleStreams()) {
-        auto* row = new StremioRow(m_rowsContainer);
-        row->setStream(s, false, QString());
-        connect(row, &StremioRow::playRequested, this, &StreamList::streamActivated);
+    const QVector<ScoredStream> visible = visibleStreams();
+
+    // Pool the current rows by key so we can reuse them. Anything left in the pool at
+    // the end is genuinely gone (filtered out / removed) and gets deleted.
+    QHash<QString, StremioRow*> pool = m_rowByKey;
+    QHash<QString, StremioRow*> next;
+    next.reserve(visible.size());
+
+    // Detach every row from the layout WITHOUT deleting the widgets, then re-add in the
+    // new ranked order below. Re-adding at an unchanged position is a no-op repaint;
+    // only rows that actually move (or are new) repaint -> stable rows never shimmer.
+    while (QLayoutItem* item = m_rowsLayout->takeAt(0))
+        delete item;   // frees the layout item only; the widget lives on
+
+    for (const ScoredStream& s : visible) {
+        const QString key = streamRowKey(s);
+        StremioRow* row = pool.take(key);   // reuse the same widget for the same stream
+        if (!row) {
+            // New stream -> create + render once. Only ever the genuinely-new rows are
+            // built, so a partial that adds N streams costs N rows, never a full rebuild.
+            row = new StremioRow(m_rowsContainer);
+            connect(row, &StremioRow::playRequested, this, &StreamList::streamActivated);
+            row->setStream(s, false, QString());
+        }
+        // Reused row keeps its already-rendered content (same stream == same data), so
+        // there is no setStream() and no repaint of its text.
+        next.insert(key, row);
         m_rowsLayout->addWidget(row);
+        row->show();
     }
+
+    for (StremioRow* dead : pool) {   // streams no longer visible
+        dead->hide();
+        dead->deleteLater();
+    }
+
+    m_rowByKey = next;
 }
 
 void StreamList::updatePending()

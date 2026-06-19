@@ -18,6 +18,7 @@ public:
 protected:
     void initializeGL() override;
     void paintGL() override;
+    void showEvent(QShowEvent* e) override;   // flush a frame deferred while hidden
 
 private:
     static void* getProcAddress(void* ctx, const char* name);

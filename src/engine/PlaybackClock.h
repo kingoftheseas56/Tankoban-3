@@ -14,7 +14,11 @@ public:
     static PlaybackClock& instance();
     double position() const { return m_displayPos; }
     double buffered() const { return m_buffered; }
-    void onSnapshot(double positionSec, double bufferedSec, bool playing, double rate);
+    // buffering: mpv paused-for-cache. While true (or once real ticks stop arriving)
+    // the smoothing interpolation freezes, so a stalled/buffering frame never lets the
+    // scrub bar ghost-advance past the real play head (spec §0.1 #2 / MG3).
+    void onSnapshot(double positionSec, double bufferedSec, bool playing, double rate,
+                    bool buffering);
     void reset();
 
 signals:

@@ -3,6 +3,7 @@
 
 #include <QOpenGLContext>
 #include <QMetaObject>
+#include <QShowEvent>
 
 #include <mpv/client.h>
 #include <mpv/render_gl.h>
@@ -23,7 +24,20 @@ void MpvGlWidget::onMpvUpdate(void* ctx)
     auto* self = static_cast<MpvGlWidget*>(ctx);
     bool expected = false;
     if (self->m_redrawPending.compare_exchange_strong(expected, true))
-        QMetaObject::invokeMethod(self, [self]{ self->update(); }, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(self, [self]{
+            // Suppress GL repaints while the player page is hidden (pre-created before
+            // show, or backgrounded after Back). The flag stays pending so showEvent()
+            // flushes the held frame when the page is next exposed — without this the
+            // pre-warmed widget would render into an unexposed surface.
+            if (self->isVisible()) self->update();
+        }, Qt::QueuedConnection);
+}
+
+void MpvGlWidget::showEvent(QShowEvent* e)
+{
+    QOpenGLWidget::showEvent(e);
+    if (m_redrawPending.load())
+        update();   // a redraw arrived while hidden — paint it now that we're exposed
 }
 
 void MpvGlWidget::initializeGL()

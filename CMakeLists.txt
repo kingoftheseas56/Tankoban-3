@@ -26,6 +26,8 @@ qt_add_executable(Tankoban3
     src/engine/PlaybackClock.cpp
     src/player/PlayerView.h
     src/player/PlayerView.cpp
+    src/player/PlayerLoadingOverlay.h
+    src/player/PlayerLoadingOverlay.cpp
     src/player/HotkeyDispatcher.h
     src/player/HotkeyDispatcher.cpp
     src/util/Theme.h

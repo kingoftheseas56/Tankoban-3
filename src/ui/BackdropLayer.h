@@ -18,7 +18,13 @@ protected:
 
 private:
     QString m_source;
-    QPixmap m_cachedPixmap;
+    QPixmap m_cachedPixmap;   // source image at native resolution
+    // Cache of the scaled+positioned backdrop so paintEvent doesn't re-run the
+    // expensive SmoothTransformation scale on every repaint (scrolling the translucent
+    // picker forces this layer to repaint each frame -> per-frame full-image rescale =
+    // the rough-scroll / hang). Rebuilt only when the source or widget size changes.
+    QPixmap m_scaledCache;
+    QSize m_scaledForSize;
 };
 
 } // namespace tankoban

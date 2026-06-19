@@ -13,6 +13,7 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QFont>
 #include <QFileInfo>
 #include <QScreen>
 #include <QStandardPaths>
@@ -63,6 +64,21 @@ int main(int argc, char** argv)
     QApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("Tankoban 3"));
     app.setOrganizationName(QStringLiteral("Tankoban"));
+
+    // Render text with grayscale antialiasing instead of sub-pixel (ClearType) AA.
+    // TB3's UI paints text on translucent panels (the source picker list and the
+    // subtitle popup both sit on WA_TranslucentBackground chains over a backdrop).
+    // Sub-pixel AA needs an opaque destination; on a translucent surface it produces
+    // colored-fringe glyphs whose sub-pixel phase shifts on every repaint (scroll,
+    // spinner, backdrop landing) -> the text shimmer/jitter. Grayscale AA is
+    // position-stable on any surface and visually near-identical, and preserves the
+    // translucent design. Set on the app font so it's inherited app-wide.
+    {
+        QFont f = app.font();
+        f.setStyleStrategy(QFont::StyleStrategy(f.styleStrategy() | QFont::NoSubpixelAntialias));
+        app.setFont(f);
+    }
+
     app.setStyleSheet(tankoban::appStyleSheet());
 
     // Phase 2 (throwaway): prove the vendored libtorrent links + a session

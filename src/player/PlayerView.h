@@ -11,6 +11,7 @@ class MpvController;
 class MpvGlWidget;
 class TransportBar;
 class QTimer;
+namespace tankoban { class PlayerLoadingOverlay; }
 
 class PlayerView : public QWidget {
     Q_OBJECT
@@ -42,6 +43,8 @@ private:
     MpvController* m_controller = nullptr;
     MpvGlWidget* m_video = nullptr;
     TransportBar* m_chrome = nullptr;
+    tankoban::PlayerLoadingOverlay* m_loader = nullptr;  // warm-up / buffering cover
+    bool m_everPlayed = false;    // sticky: real playback progress seen (Harbor everPlayed)
     QTimer* m_clickTimer = nullptr;
     bool m_swallowRelease = false;
     bool m_fakeFs = false;        // borderless-fullscreen via geometry (no OS transition = no blink)

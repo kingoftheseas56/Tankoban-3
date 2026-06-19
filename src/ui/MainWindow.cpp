@@ -228,6 +228,15 @@ MainWindow::MainWindow(QWidget* parent)
 
     m_content->setCurrentIndex(m_pageIndex.value(QStringLiteral("home")));
 
+    // Pre-create the player page (and its QOpenGLWidget) BEFORE show(), so the
+    // raster->GL surface flip + top-level HWND recreation happen during initial
+    // window bring-up rather than dissolving the window on the first stream play
+    // (Agent 0 deep-research pattern). mpv stays lazy until play(); the HWND
+    // recreation is caught by changeEvent(WinIdChange) which re-applies the styling.
+    // (The A/B diagnostic proved GL compositing is NOT the source-list jitter cause —
+    // that was the rebuild churn, now fixed by StreamList keyed reconciliation.)
+    ensurePlayerPage();
+
     // winId() forces native HWND creation so the Win32 style re-add has a handle.
     applyFramelessWin32Style();
     updateMaxRestoreIcon();
@@ -325,11 +334,7 @@ void MainWindow::openDirectPlayer(const ScoredStream& stream)
         url = QString::fromStdString(resolved);
     }
 
-    if (!m_player) {
-        m_player = new VideoPlayerPage(this);
-        m_playerIndex = m_content->addWidget(m_player);   // a real page in the shell
-        connect(m_player, &VideoPlayerPage::backRequested, this, [this] { closePlayer(); });
-    }
+    ensurePlayerPage();
 
     PlayerRequest req;
     req.url = url;
@@ -350,6 +355,15 @@ void MainWindow::openDirectPlayer(const ScoredStream& stream)
     if (m_topBar) m_topBar->hide();
     m_content->setCurrentIndex(m_playerIndex);
     m_player->play(req);
+}
+
+void MainWindow::ensurePlayerPage()
+{
+    if (m_player)
+        return;
+    m_player = new VideoPlayerPage(this);
+    m_playerIndex = m_content->addWidget(m_player);   // a real page in the shell
+    connect(m_player, &VideoPlayerPage::backRequested, this, [this] { closePlayer(); });
 }
 
 void MainWindow::closePlayer()
@@ -500,8 +514,16 @@ void MainWindow::showEvent(QShowEvent* event)
 void MainWindow::changeEvent(QEvent* event)
 {
     QWidget::changeEvent(event);
-    if (event->type() == QEvent::WindowStateChange)
+    if (event->type() == QEvent::WindowStateChange) {
         updateMaxRestoreIcon();
+    } else if (event->type() == QEvent::WinIdChange && m_chromeApplied) {
+        // The QOpenGLWidget composite flips the top-level raster->GL surface and
+        // recreates the native HWND, which silently drops our frameless Win32 styling
+        // (the window would briefly revert to an OS frame / dissolve). Re-assert it on
+        // every HWND change so the frameless chrome survives the GL surface flip.
+        applyFramelessWin32Style();
+        updateMaxRestoreIcon();
+    }
 }
 
 #ifdef Q_OS_WIN

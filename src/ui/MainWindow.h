@@ -61,6 +61,9 @@ private:
     // Open the in-app player on a chosen DIRECT-link stream (no torrent/debrid this slice).
     void openDirectPlayer(const ScoredStream& stream);
     void closePlayer();   // leave the player page, restore chrome, return to the picker
+    // Create the player page + warm its GL/mpv-render context off the first-play path,
+    // so the initial handoff is a plain page switch (no surface-creation dissolve).
+    void ensurePlayerPage();
     // Frameless Harbor-style window chrome (no OS title bar; min/max/close in our skin).
     void buildTopBar();
     void applyFramelessWin32Style();
