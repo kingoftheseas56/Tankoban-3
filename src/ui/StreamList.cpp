@@ -2,9 +2,15 @@
 
 #include "ui/StreamList.h"
 
-#include "ui/StremioRow.h"
+#include "ui/SourceFilterProxy.h"
+#include "ui/SourceListModel.h"
+#include "ui/SourceListView.h"
+#include "ui/SourceRowDelegate.h"
+#include "ui/StreamRowPaint.h"
 
 #include <QAction>
+#include <QClipboard>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QHash>
 #include <QLabel>
@@ -42,32 +48,6 @@ const QString kChevronDown = QStringLiteral("<path d='m6 9 6 6 6-6'/>");
 const QString kGrid = QStringLiteral(
     "<rect width='7' height='7' x='3' y='3' rx='1'/><rect width='7' height='7' x='14' y='3' rx='1'/>"
     "<rect width='7' height='7' x='3' y='14' rx='1'/><rect width='7' height='7' x='14' y='14' rx='1'/>");
-
-QString addonInstanceKey(const ScoredStream& s)
-{
-    return s.addonUrl.isEmpty() ? s.addonId : s.addonUrl.toString();
-}
-
-// Stable per-stream identity for row reuse across re-ranks/partials. Same stream ->
-// same key -> same widget kept (no re-rasterize). Mirrors the StreamService dedupe key.
-QString streamRowKey(const ScoredStream& s)
-{
-    const QString id = !s.infoHash.isEmpty()
-        ? QStringLiteral("h:%1:%2").arg(s.infoHash).arg(s.fileIdx)
-        : (!s.url.isEmpty() ? QStringLiteral("u:%1").arg(s.url)
-                            : QStringLiteral("t:%1").arg(s.title.isEmpty() ? s.name : s.title));
-    return s.addonId + QLatin1Char('|') + id;
-}
-
-QString qualityGroupOf(const ScoredStream& s)
-{
-    switch (s.resolution) {
-    case Resolution::FourK: return QStringLiteral("4K");
-    case Resolution::FullHD: return QStringLiteral("1080p");
-    case Resolution::HD: return QStringLiteral("720p");
-    default: return QStringLiteral("SD");
-    }
-}
 
 struct AddonOpt {
     QString key;
@@ -194,12 +174,33 @@ StreamList::StreamList(QWidget* parent)
     m_qualityLayout->setSpacing(6);
     col->addWidget(m_qualityBar);
 
-    // Rows.
-    m_rowsContainer = new QWidget(this);
-    m_rowsLayout = new QVBoxLayout(m_rowsContainer);
-    m_rowsLayout->setContentsMargins(0, 0, 0, 0);
-    m_rowsLayout->setSpacing(8);
-    col->addWidget(m_rowsContainer);
+    // Source rows: native model/view stack (data -> ranked proxy -> virtualized view).
+    // The QListView owns the source-list scrolling viewport, so only visible rows paint.
+    m_model = new SourceListModel(this);
+    m_proxy = new SourceFilterProxy(this);
+    m_proxy->setSourceModel(m_model);
+    m_delegate = new SourceRowDelegate(this);
+    m_view = new SourceListView(this);
+    m_view->setModel(m_proxy);
+    m_view->setItemDelegate(m_delegate);
+    col->addWidget(m_view, 1);
+
+    connect(m_view, &SourceListView::playActivated, this, [this](const QModelIndex& i) {
+        emit streamActivated(i.data(SourceListModel::StreamRole).value<ScoredStream>());
+    });
+    connect(m_view, &SourceListView::copyActivated, this, [this](const QModelIndex& i) {
+        const auto s = i.data(SourceListModel::StreamRole).value<ScoredStream>();
+        const QString link = (!s.url.isEmpty() && s.url != QStringLiteral("#")) ? s.url : s.externalUrl;
+        if (!link.isEmpty()) {
+            QGuiApplication::clipboard()->setText(link);
+            m_delegate->setCopiedKey(streamRowKey(s));
+            m_view->viewport()->update();
+            QTimer::singleShot(1200, this, [this] {
+                m_delegate->setCopiedKey(QString());
+                m_view->viewport()->update();
+            });
+        }
+    });
 
     // Pending-addons pill (centered).
     auto* pendingRow = new QWidget(this);
@@ -245,7 +246,9 @@ void StreamList::setStreams(const QVector<ScoredStream>& streams, const Options&
 
     refreshAddonButton();
     rebuildQualityBar(); // validates m_qualityFilter against current groups
-    reconcileRows();
+    m_model->setStreams(streams);               // incremental key-merge; repaints visible rows only
+    m_proxy->setAddonFilter(m_addonFilter);
+    m_proxy->setQualityFilter(m_qualityFilter);
     updatePending();
 }
 
@@ -256,22 +259,10 @@ void StreamList::clearStreams()
     m_qualityFilter = QStringLiteral("all");
     refreshAddonButton();
     rebuildQualityBar();
-    reconcileRows();
+    m_model->clear();
+    m_proxy->setAddonFilter(m_addonFilter);
+    m_proxy->setQualityFilter(m_qualityFilter);
     updatePending();
-}
-
-QVector<ScoredStream> StreamList::visibleStreams() const
-{
-    QVector<ScoredStream> out;
-    out.reserve(m_streams.size());
-    for (const ScoredStream& s : m_streams) {
-        if (m_addonFilter != QStringLiteral("all") && addonInstanceKey(s) != m_addonFilter)
-            continue;
-        if (m_qualityFilter != QStringLiteral("all") && qualityGroupOf(s) != m_qualityFilter)
-            continue;
-        out.push_back(s);
-    }
-    return out; // preserve incoming (ranked) order
 }
 
 void StreamList::refreshAddonButton()
@@ -317,7 +308,8 @@ void StreamList::showAddonMenu()
     m_addonFilter = key;
     refreshAddonButton();
     rebuildQualityBar(); // groups depend on the addon-filtered set
-    reconcileRows();
+    m_proxy->setAddonFilter(m_addonFilter);
+    m_proxy->setQualityFilter(m_qualityFilter); // rebuildQualityBar may have reset it to "all"
 }
 
 void StreamList::rebuildQualityBar()
@@ -367,7 +359,8 @@ void StreamList::rebuildQualityBar()
                 return;
             m_qualityFilter = key;
             rebuildQualityBar();
-            reconcileRows();
+            m_proxy->setAddonFilter(m_addonFilter);
+            m_proxy->setQualityFilter(m_qualityFilter);
         });
         m_qualityLayout->addWidget(pill);
     };
@@ -376,47 +369,6 @@ void StreamList::rebuildQualityBar()
     for (const QString& g : groups)
         addPill(g, g, counts.value(g));
     m_qualityLayout->addStretch();
-}
-
-void StreamList::reconcileRows()
-{
-    const QVector<ScoredStream> visible = visibleStreams();
-
-    // Pool the current rows by key so we can reuse them. Anything left in the pool at
-    // the end is genuinely gone (filtered out / removed) and gets deleted.
-    QHash<QString, StremioRow*> pool = m_rowByKey;
-    QHash<QString, StremioRow*> next;
-    next.reserve(visible.size());
-
-    // Detach every row from the layout WITHOUT deleting the widgets, then re-add in the
-    // new ranked order below. Re-adding at an unchanged position is a no-op repaint;
-    // only rows that actually move (or are new) repaint -> stable rows never shimmer.
-    while (QLayoutItem* item = m_rowsLayout->takeAt(0))
-        delete item;   // frees the layout item only; the widget lives on
-
-    for (const ScoredStream& s : visible) {
-        const QString key = streamRowKey(s);
-        StremioRow* row = pool.take(key);   // reuse the same widget for the same stream
-        if (!row) {
-            // New stream -> create + render once. Only ever the genuinely-new rows are
-            // built, so a partial that adds N streams costs N rows, never a full rebuild.
-            row = new StremioRow(m_rowsContainer);
-            connect(row, &StremioRow::playRequested, this, &StreamList::streamActivated);
-            row->setStream(s, false, QString());
-        }
-        // Reused row keeps its already-rendered content (same stream == same data), so
-        // there is no setStream() and no repaint of its text.
-        next.insert(key, row);
-        m_rowsLayout->addWidget(row);
-        row->show();
-    }
-
-    for (StremioRow* dead : pool) {   // streams no longer visible
-        dead->hide();
-        dead->deleteLater();
-    }
-
-    m_rowByKey = next;
 }
 
 void StreamList::updatePending()

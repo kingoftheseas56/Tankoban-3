@@ -14,7 +14,8 @@ SourceListView::SourceListView(QWidget* parent) : QListView(parent)
     setFrameShape(QFrame::NoFrame);
     setSelectionMode(QAbstractItemView::NoSelection);
     setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    setUniformItemSizes(true);   // fixed row height -> fast virtualization
+    // Rows are variable-height (word-wrapped multi-line content) -> NO uniformItemSizes
+    // (it would cache one row's size for all and mis-lay them on first population).
     setSpacing(8);
     setViewMode(QListView::ListMode);
     setFlow(QListView::TopToBottom);
@@ -23,6 +24,12 @@ SourceListView::SourceListView(QWidget* parent) : QListView(parent)
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     setMinimumHeight(420);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    // Transparent viewport so the page background shows through (cards are translucent),
+    // not an opaque dark block over the page. QSS alone is not enough on a scroll-area
+    // viewport — the WA_TranslucentBackground attribute is the load-bearing part.
+    setStyleSheet(QStringLiteral("QListView { background: transparent; border: none; }"));
+    viewport()->setAutoFillBackground(false);
+    viewport()->setAttribute(Qt::WA_TranslucentBackground, true);
 }
 
 SourceRowDelegate* SourceListView::rowDelegate() const

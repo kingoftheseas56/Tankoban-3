@@ -18,7 +18,10 @@ class QVBoxLayout;
 
 namespace tankoban {
 
-class StremioRow;
+class SourceFilterProxy;
+class SourceListModel;
+class SourceListView;
+class SourceRowDelegate;
 
 class StreamList : public QWidget {
     Q_OBJECT
@@ -38,17 +41,14 @@ signals:
     void streamActivated(const ScoredStream& stream);
 
 private:
-    // Keyed incremental reconcile: reuse existing StremioRow widgets across partial
-    // updates / re-ranks instead of tearing them down. Tear-down re-rasterized every
-    // glyph on every partial -> the loading-time text shimmer; reuse keeps stable rows
-    // untouched (Harbor keyed-reconciliation parity) and only ever creates NEW rows,
-    // which also avoids the 500-source synchronous-rebuild freeze.
-    void reconcileRows();
+    // Source rows live in a Qt model/view stack: a data-only model, a ranked
+    // addon/quality proxy, and a virtualized QListView painted by SourceRowDelegate.
+    // Only on-screen rows are ever painted -> no per-source widgets, no synchronous
+    // 500-row rebuild, no shimmer while partials stream in.
     void rebuildQualityBar();
     void refreshAddonButton();
     void showAddonMenu();
     void updatePending();
-    QVector<ScoredStream> visibleStreams() const;
 
     QVector<ScoredStream> m_streams;
     Options m_options;
@@ -60,15 +60,15 @@ private:
     QLabel* m_addonLabel = nullptr;
     QWidget* m_qualityBar = nullptr;
     QHBoxLayout* m_qualityLayout = nullptr;
-    QWidget* m_rowsContainer = nullptr;
-    QVBoxLayout* m_rowsLayout = nullptr;
     QWidget* m_pending = nullptr;
     QLabel* m_pendingLabel = nullptr;
 
-    // Live row widgets keyed by stream identity (addon + infoHash/url/title), so a
-    // re-rank or partial update reuses the same widget for the same stream instead of
-    // recreating it. The stable rows never repaint -> no shimmer while sources load.
-    QHash<QString, StremioRow*> m_rowByKey;
+    // Native model/view source list: data-only model -> ranked addon/quality proxy ->
+    // virtualized QListView painted by the delegate.
+    SourceListModel* m_model = nullptr;
+    SourceFilterProxy* m_proxy = nullptr;
+    SourceListView* m_view = nullptr;
+    SourceRowDelegate* m_delegate = nullptr;
 };
 
 } // namespace tankoban

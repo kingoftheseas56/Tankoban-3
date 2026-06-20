@@ -1,6 +1,7 @@
 // Tankoban 3 - paints one source row 1:1 with the old StremioRow, using QPainter.
-// Fixed row height for stable virtualization; icons cached in QPixmapCache. Exposes
-// play/copy sub-rects so SourceListView can hit-test clicks + drive hover.
+// Variable height: the row grows to fit word-wrapped (multi-line) headline + filename
+// (>= kMinRowHeight). Icons cached in QPixmapCache. Exposes play/copy sub-rects so
+// SourceListView can hit-test clicks + drive hover.
 #pragma once
 
 #include <QStyledItemDelegate>
@@ -12,7 +13,7 @@ namespace tankoban {
 class SourceRowDelegate : public QStyledItemDelegate {
     Q_OBJECT
 public:
-    static constexpr int kRowHeight = 112;   // fixed; fits headline + 2 desc lines + badges + status
+    static constexpr int kMinRowHeight = 96;   // StremioRow's floor; rows grow past it to fit content
 
     explicit SourceRowDelegate(QObject* parent = nullptr);
 
