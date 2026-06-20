@@ -38,6 +38,17 @@ These are execution-hardening changes found during pre-execution review. Treat t
 
 ---
 
+## As-built note (2026-06-20, Tasks 4-6 shipped — commit c0a382b)
+
+The implementation **diverged** from the Task 4/5/6 code below; the divergences were found during Hemanth's eye-smoke and are the correct as-built:
+- `SourceListModel::KeyRole` **never existed** — the model exposes only `StreamRole` + `RankRole`. Wherever the code below reads `KeyRole`, the as-built keys off **`streamRowKey(s)`** (the Task 1 helper) instead.
+- Real Stremio source labels are **multi-line**, so `SourceRowDelegate` is **variable-height + word-wrapped** (NOT the fixed `kRowHeight` / single-line `drawText` of Task 4). `sizeHint` measures from `opt.widget`'s viewport width; `setUniformItemSizes` is **removed**.
+- `SourceListView`'s viewport is **transparent** (`WA_TranslucentBackground`) so the page shows through instead of an opaque dark block.
+
+Full root-cause writeup: memory `project_tankoban3_sources_page_native_modelview_fix`.
+
+---
+
 ## File Structure
 
 **New files:**
