@@ -71,10 +71,11 @@ Item {
     }
 
     function toggleFullscreen() {
-        var win = page.Window.window
-        if (!win)
-            return
-        win.visibility = win.visibility === Window.FullScreen ? Window.Windowed : Window.FullScreen
+        // Delegates to the window's geometry-based borderless fullscreen (no OS
+        // Window.FullScreen → no Windows exclusive-fullscreen blink).
+        var w = page.Window.window
+        if (w)
+            w.toggleFullscreen()
     }
 
 
@@ -371,31 +372,18 @@ Item {
                     Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
                     spacing: 6
 
-                    CircleButton {
+                    AudioMenuButton {
                         visible: !tight
-                        width: 48
-                        height: 48
-                        kind: "audio"
-                        enabled: false
                     }
-                    CircleButton {
-                        width: 48
-                        height: 48
-                        kind: "subtitle"
-                        enabled: false
+                    SubtitleMenuButton {
                     }
-                    CircleButton {
+                    SpeedMenuButton {
                         visible: !compact
-                        width: 48
-                        height: 48
-                        kind: "speed"
-                        label: Math.abs(player.rate - 1) > 0.01 ? player.rate.toFixed(2) + "x" : "1x"
-                        enabled: false
                     }
                     CircleButton {
                         width: 48
                         height: 48
-                        kind: page.Window.window && page.Window.window.visibility === Window.FullScreen ? "minimize" : "maximize"
+                        kind: (page.Window.window && page.Window.window.fakeFullscreen) ? "minimize" : "maximize"
                         onClicked: toggleFullscreen()
                     }
                 }
@@ -605,9 +593,9 @@ Item {
                 line(7, 15, 11, 15); line(15, 15, 17, 15)
                 line(7, 11, 9, 11); line(13, 11, 17, 11)
             } else if (kind === "speed") {
-                // lucide Gauge (QWidget SpeedMenu trigger): 240deg dial + needle.
-                bind(0.42)
-                ctx.lineWidth = 1.85 * penBase
+                // lucide Gauge (Harbor: size 22, strokeWidth 1.9): 240deg dial + needle.
+                bind(0.46)
+                ctx.lineWidth = 1.9 * penBase
                 var dcx = px(12), dcy = py(14), dr = 10 * unit
                 ctx.beginPath()
                 ctx.arc(dcx, dcy, dr, 150 * Math.PI / 180, 30 * Math.PI / 180, false)
@@ -697,6 +685,770 @@ Item {
             font.pixelSize: 12
             font.weight: Font.DemiBold
             width: 36
+        }
+    }
+
+    // SpeedMenuButton — faithful port of the QWidget SpeedMenu/SpeedPopup
+    // (src/chrome/SpeedMenu.cpp): a Gauge trigger that grows into a pill showing
+    // the current rate when rate != 1x, opening a 400px popover with the 7 preset
+    // speed rows. Harbor token palette matches AudioMenu/SubtitleMenu.
+    component SpeedMenuButton: Item {
+        id: sRoot
+        property bool active: Math.abs(player.rate - 1) > 0.01
+        // Mirrors QWidget rateLabel(): "1.5", "1.25", "2" + the × sign.
+        function rateLabel(r) {
+            var n = Math.round(r * 100) / 100
+            return n + "×"
+        }
+        implicitWidth: trigger.width
+        implicitHeight: 48
+        width: implicitWidth
+        height: 48
+
+        Button {
+            id: trigger
+            height: 48
+            // 48px gauge box (left) + label at x40 + right pad when active; 48 otherwise.
+            width: sRoot.active ? (54 + rateText.implicitWidth) : 48
+            flat: true
+            hoverEnabled: true
+            scale: down ? 0.95 : 1
+            Behavior on scale { NumberAnimation { duration: 80 } }
+
+            background: Rectangle {
+                radius: height / 2
+                color: (sRoot.active || speedPopup.opened)
+                       ? (trigger.hovered ? "#4cffffff" : "#38ffffff")   // white/30 : white/22
+                       : (trigger.hovered ? "#1affffff" : "#00000000")   // white/10 : transparent
+            }
+
+            contentItem: Item {
+                // Gauge rendered on a full 48px canvas (same as the audio/subtitle/
+                // fullscreen icons) so size + stroke match; centred when at rest,
+                // left-aligned when the rate pill grows.
+                IconGlyph {
+                    width: 48
+                    height: 48
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    kind: "speed"
+                    iconColor: (sRoot.active || speedPopup.opened || trigger.hovered) ? "#ffffff" : "#e6ffffff"
+                }
+                Text {
+                    id: rateText
+                    visible: sRoot.active
+                    x: 40
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: sRoot.rateLabel(player.rate)
+                    color: (sRoot.active || trigger.hovered) ? "#ffffff" : "#e6ffffff"
+                    font.family: "Inter"
+                    font.pixelSize: 11
+                    font.weight: Font.Bold
+                }
+            }
+
+            onClicked: speedPopup.opened ? speedPopup.close() : speedPopup.open()
+        }
+
+        Popup {
+            id: speedPopup
+            width: 400
+            height: 334                 // padding(16) + title(24) + 7*40 + 7 gaps*2
+            x: trigger.width - width     // right-aligned to the trigger
+            y: -height - 10              // floats above the trigger
+            padding: 8
+            closePolicy: Popup.CloseOnPressOutside | Popup.CloseOnReleaseOutside | Popup.CloseOnEscape
+
+            background: Rectangle {
+                radius: 16
+                color: "#f7111419"          // bg-elevated/97
+                border.color: "#16ffffff"   // border-edge
+                border.width: 1
+            }
+
+            contentItem: Column {
+                spacing: 2
+
+                Item {
+                    width: 384
+                    height: 24
+                    Text {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Playback speed"
+                        font.family: "Inter"
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        font.capitalization: Font.AllUppercase
+                        font.letterSpacing: 1.6
+                        color: "#a4acb7"
+                    }
+                }
+
+                Repeater {
+                    model: [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+                    delegate: Rectangle {
+                        id: speedRow
+                        required property real modelData
+                        width: 384
+                        height: 40
+                        radius: 8
+                        property bool selected: Math.abs(modelData - player.rate) < 0.01
+                        property bool isNormal: Math.abs(modelData - 1.0) < 0.01
+                        color: selected ? "#1affffff" : (rowMouse.containsMouse ? "#0cffffff" : "#00000000")
+                        border.color: selected ? "#16ffffff" : "#00000000"
+                        border.width: 1
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.leftMargin: 12
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: speedRow.isNormal ? "Normal" : sRoot.rateLabel(speedRow.modelData)
+                            color: speedRow.selected ? "#f5f7fa" : "#838b97"
+                            font.family: "Inter"
+                            font.pixelSize: 14
+                            font.weight: speedRow.selected ? Font.Medium : Font.Normal
+                        }
+
+                        Text {
+                            visible: speedRow.isNormal
+                            anchors.right: parent.right
+                            anchors.rightMargin: 12
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "default"
+                            font.capitalization: Font.AllUppercase
+                            color: "#a4acb7"
+                            font.family: "Inter"
+                            font.pixelSize: 11
+                            font.weight: Font.DemiBold
+                        }
+
+                        MouseArea {
+                            id: rowMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                player.setRate(speedRow.modelData)
+                                speedPopup.close()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Small ±delay step pill, shared by the audio + subtitle sync footers.
+    component DelayStepButton: Button {
+        id: delayStep
+        flat: true
+        hoverEnabled: true
+        implicitHeight: 24
+        implicitWidth: Math.max(36, stepText.implicitWidth + 16)
+        background: Rectangle {
+            radius: 6
+            color: delayStep.hovered ? "#1fffffff" : "#12ffffff"
+        }
+        contentItem: Text {
+            id: stepText
+            text: delayStep.text
+            color: "#f5f7fa"
+            font.family: "Inter"
+            font.pixelSize: 11
+            font.weight: Font.DemiBold
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+    }
+
+    // AudioMenuButton — single-column port of the QWidget AudioMenu/AudioPopup
+    // (src/chrome/AudioMenu.cpp): track rows + a sync-delay footer. The leading
+    // per-row language badge pill is folded into the meta line.
+    component AudioMenuButton: Item {
+        id: aRoot
+        implicitWidth: 48
+        implicitHeight: 48
+        width: 48
+        height: 48
+
+        function trackTitle(t) {
+            if (t.title && t.title.trim() !== "" && t.title !== t.lang) return t.title
+            if (t.label && t.label.trim() !== "" && t.label !== t.lang) return t.label
+            if (t.lang && t.lang.trim() !== "") return t.lang.toUpperCase()
+            return "Track"
+        }
+        function trackMeta(t) {
+            var parts = []
+            if (t.lang && t.lang.trim() !== "") parts.push(t.lang.toUpperCase())
+            if (t.codec && t.codec.trim() !== "") parts.push(t.codec.toUpperCase())
+            if (t.channels && t.channels.trim() !== "") parts.push(t.channels)
+            if (t.isDefault) parts.push("DEFAULT")
+            return parts.join("   /   ")
+        }
+
+        Button {
+            id: audioTrigger
+            width: 48
+            height: 48
+            flat: true
+            hoverEnabled: true
+            scale: down ? 0.95 : 1
+            Behavior on scale { NumberAnimation { duration: 80 } }
+            background: Rectangle {
+                radius: width / 2
+                color: audioPopup.opened ? "#38ffffff" : (audioTrigger.hovered ? "#1affffff" : "#00000000")
+            }
+            contentItem: Item {
+                IconGlyph {
+                    anchors.fill: parent
+                    kind: "audio"
+                    iconColor: (audioPopup.opened || audioTrigger.hovered) ? "#ffffff" : "#e6ffffff"
+                }
+            }
+            onClicked: audioPopup.opened ? audioPopup.close() : audioPopup.open()
+        }
+
+        Popup {
+            id: audioPopup
+            readonly property int trackCount: player.audioTracks.length
+            readonly property int listH: trackCount > 0 ? Math.min(280, Math.max(56, trackCount * 48 + 12)) : 72
+            width: 360
+            height: 48 + listH + 40
+            x: audioTrigger.width - width
+            y: -height - 10
+            padding: 0
+            closePolicy: Popup.CloseOnPressOutside | Popup.CloseOnReleaseOutside | Popup.CloseOnEscape
+
+            background: Rectangle {
+                radius: 16
+                color: "#f7111419"
+                border.color: "#16ffffff"
+                border.width: 1
+            }
+
+            contentItem: Item {
+                // Header
+                Item {
+                    width: parent.width
+                    height: 48
+                    Text {
+                        id: audioHeaderText
+                        anchors.left: parent.left
+                        anchors.leftMargin: 16
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Audio"
+                        color: "#f5f7fa"
+                        font.family: "Inter"
+                        font.pixelSize: 14
+                        font.weight: Font.DemiBold
+                    }
+                    Text {
+                        anchors.left: audioHeaderText.right
+                        anchors.leftMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: audioPopup.trackCount > 0
+                        text: audioPopup.trackCount
+                        color: "#a4acb7"
+                        font.family: "Inter"
+                        font.pixelSize: 12
+                    }
+                    Button {
+                        id: audioClose
+                        anchors.right: parent.right
+                        anchors.rightMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 28
+                        height: 28
+                        flat: true
+                        hoverEnabled: true
+                        background: Rectangle { radius: 14; color: audioClose.hovered ? "#12ffffff" : "#00000000" }
+                        contentItem: Item {
+                            Rectangle { anchors.centerIn: parent; width: 12; height: 1.6; radius: 1; color: "#a4acb7"; rotation: 45 }
+                            Rectangle { anchors.centerIn: parent; width: 12; height: 1.6; radius: 1; color: "#a4acb7"; rotation: -45 }
+                        }
+                        onClicked: audioPopup.close()
+                    }
+                    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: "#12ffffff" }
+                }
+
+                // Track list / empty state
+                Item {
+                    y: 48
+                    width: parent.width
+                    height: audioPopup.listH
+
+                    Text {
+                        visible: audioPopup.trackCount === 0
+                        anchors.left: parent.left
+                        anchors.leftMargin: 16
+                        anchors.top: parent.top
+                        anchors.topMargin: 14
+                        width: parent.width - 32
+                        wrapMode: Text.WordWrap
+                        text: "This file has one audio track."
+                        color: "#838b97"
+                        font.family: "Inter"
+                        font.pixelSize: 13
+                    }
+
+                    ListView {
+                        visible: audioPopup.trackCount > 0
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        clip: true
+                        spacing: 2
+                        boundsBehavior: Flickable.StopAtBounds
+                        model: player.audioTracks
+                        delegate: Rectangle {
+                            id: aRow
+                            required property var modelData
+                            width: ListView.view.width
+                            height: 46
+                            radius: 8
+                            property bool sel: modelData.selected === true
+                            color: sel ? "#1affffff" : (aRowHover.containsMouse ? "#0affffff" : "#00000000")
+                            border.color: sel ? "#16ffffff" : "#00000000"
+                            border.width: 1
+
+                            Rectangle {
+                                id: aDot
+                                x: 10
+                                y: 15
+                                width: 16
+                                height: 16
+                                radius: 8
+                                color: aRow.sel ? page.gold : "#12ffffff"
+                                Text {
+                                    anchors.centerIn: parent
+                                    visible: aRow.sel
+                                    text: "✓"
+                                    color: "#13151b"
+                                    font.pixelSize: 11
+                                    font.bold: true
+                                }
+                            }
+                            Text {
+                                anchors.left: aDot.right
+                                anchors.leftMargin: 11
+                                anchors.right: parent.right
+                                anchors.rightMargin: 12
+                                y: 7
+                                text: aRoot.trackTitle(aRow.modelData)
+                                elide: Text.ElideRight
+                                color: "#f5f7fa"
+                                font.family: "Inter"
+                                font.pixelSize: 13
+                                font.weight: Font.Medium
+                            }
+                            Text {
+                                anchors.left: aDot.right
+                                anchors.leftMargin: 11
+                                anchors.right: parent.right
+                                anchors.rightMargin: 12
+                                y: 25
+                                text: aRoot.trackMeta(aRow.modelData)
+                                elide: Text.ElideRight
+                                color: "#a4acb7"
+                                font.family: "Inter"
+                                font.pixelSize: 11
+                            }
+                            MouseArea {
+                                id: aRowHover
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: { player.setAudioTrack(aRow.modelData.id); audioPopup.close() }
+                            }
+                        }
+                    }
+                }
+
+                // Sync-delay footer
+                Item {
+                    y: audioPopup.height - 40
+                    width: parent.width
+                    height: 40
+                    Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: "#12ffffff" }
+                    RowLayout {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 6
+                        Text {
+                            text: "SYNC"
+                            color: "#838b97"
+                            font.family: "Inter"
+                            font.pixelSize: 11
+                            font.bold: true
+                        }
+                        DelayStepButton {
+                            text: "-0.1"
+                            onClicked: player.setAudioDelay(Math.round((player.audioDelaySec - 0.1) * 100) / 100)
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                            text: (player.audioDelaySec >= 0 ? "+" : "") + player.audioDelaySec.toFixed(2) + "s"
+                            color: "#f5f7fa"
+                            font.family: "Consolas"
+                            font.pixelSize: 13
+                        }
+                        DelayStepButton {
+                            text: "+0.1"
+                            onClicked: player.setAudioDelay(Math.round((player.audioDelaySec + 0.1) * 100) / 100)
+                        }
+                        Button {
+                            id: audioReset
+                            visible: Math.abs(player.audioDelaySec) > 0.0001
+                            flat: true
+                            hoverEnabled: true
+                            implicitWidth: 24
+                            implicitHeight: 24
+                            background: Rectangle { radius: 12; color: audioReset.hovered ? "#12ffffff" : "#00000000" }
+                            contentItem: Text {
+                                text: "↺"
+                                color: "#a4acb7"
+                                font.pixelSize: 14
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            onClicked: player.setAudioDelay(0)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // SubtitleMenuButton — single-column port of the QWidget SubtitleMenu
+    // (src/chrome/SubtitleMenu.cpp): an Off row + embedded track rows + a sync
+    // footer. The two-column language rail is deferred to a real multi-sub file.
+    component SubtitleMenuButton: Item {
+        id: sbRoot
+        implicitWidth: 48
+        implicitHeight: 48
+        width: 48
+        height: 48
+
+        readonly property bool subOn: {
+            var list = player.subtitleTracks
+            for (var i = 0; i < list.length; i++)
+                if (list[i].selected === true) return true
+            return false
+        }
+
+        function trackTitle(t) {
+            if (t.title && t.title.trim() !== "") return t.title
+            return t.external ? "External subtitle" : "Embedded track"
+        }
+        function trackMeta(t) {
+            var parts = []
+            if (t.lang && t.lang.trim() !== "") parts.push(t.lang.toUpperCase())
+            parts.push(t.external ? "External" : "Embedded")
+            if (t.codec && t.codec.trim() !== "") parts.push(t.codec.toUpperCase())
+            if (t.forced) parts.push("FORCED")
+            if (t.hearingImpaired) parts.push("HI/SDH")
+            if (t.isDefault) parts.push("DEFAULT")
+            return parts.join("   /   ")
+        }
+
+        Button {
+            id: subTrigger
+            width: 48
+            height: 48
+            flat: true
+            hoverEnabled: true
+            scale: down ? 0.95 : 1
+            Behavior on scale { NumberAnimation { duration: 80 } }
+            background: Rectangle {
+                radius: width / 2
+                color: subPopup.opened ? "#38ffffff" : (subTrigger.hovered ? "#1affffff" : "#00000000")
+            }
+            contentItem: Item {
+                IconGlyph {
+                    anchors.fill: parent
+                    kind: "subtitle"
+                    iconColor: (subPopup.opened || subTrigger.hovered) ? "#ffffff" : "#e6ffffff"
+                }
+                // emerald active dot when a subtitle is on
+                Rectangle {
+                    visible: sbRoot.subOn
+                    width: 6
+                    height: 6
+                    radius: 3
+                    color: "#34d399"
+                    x: parent.width - 14
+                    y: 10
+                }
+            }
+            onClicked: subPopup.opened ? subPopup.close() : subPopup.open()
+        }
+
+        Popup {
+            id: subPopup
+            readonly property int trackCount: player.subtitleTracks.length
+            readonly property int listH: trackCount > 0 ? Math.min(220, trackCount * 48 + 8) : 56
+            width: 380
+            height: 48 + 8 + 34 + 6 + listH + 40
+            x: subTrigger.width - width
+            y: -height - 10
+            padding: 0
+            closePolicy: Popup.CloseOnPressOutside | Popup.CloseOnReleaseOutside | Popup.CloseOnEscape
+
+            background: Rectangle {
+                radius: 16
+                color: "#f7111419"
+                border.color: "#16ffffff"
+                border.width: 1
+            }
+
+            contentItem: Item {
+                // Header
+                Item {
+                    width: parent.width
+                    height: 48
+                    Text {
+                        id: subHeaderText
+                        anchors.left: parent.left
+                        anchors.leftMargin: 16
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Subtitles"
+                        color: "#f5f7fa"
+                        font.family: "Inter"
+                        font.pixelSize: 14
+                        font.weight: Font.DemiBold
+                    }
+                    Text {
+                        anchors.left: subHeaderText.right
+                        anchors.leftMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: subPopup.trackCount > 0
+                        text: subPopup.trackCount
+                        color: "#a4acb7"
+                        font.family: "Inter"
+                        font.pixelSize: 12
+                    }
+                    Button {
+                        id: subClose
+                        anchors.right: parent.right
+                        anchors.rightMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 28
+                        height: 28
+                        flat: true
+                        hoverEnabled: true
+                        background: Rectangle { radius: 14; color: subClose.hovered ? "#12ffffff" : "#00000000" }
+                        contentItem: Item {
+                            Rectangle { anchors.centerIn: parent; width: 12; height: 1.6; radius: 1; color: "#a4acb7"; rotation: 45 }
+                            Rectangle { anchors.centerIn: parent; width: 12; height: 1.6; radius: 1; color: "#a4acb7"; rotation: -45 }
+                        }
+                        onClicked: subPopup.close()
+                    }
+                    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: "#12ffffff" }
+                }
+
+                // Off row
+                Rectangle {
+                    id: offRow
+                    y: 56
+                    x: 8
+                    width: parent.width - 16
+                    height: 34
+                    radius: 6
+                    color: !sbRoot.subOn ? "#1affffff" : (offHover.containsMouse ? "#0affffff" : "#00000000")
+                    border.color: !sbRoot.subOn ? "#16ffffff" : "#00000000"
+                    border.width: 1
+
+                    Rectangle {
+                        id: offDot
+                        x: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 16
+                        height: 16
+                        radius: 8
+                        color: !sbRoot.subOn ? page.gold : "#12ffffff"
+                        Text {
+                            anchors.centerIn: parent
+                            visible: !sbRoot.subOn
+                            text: "✓"
+                            color: "#13151b"
+                            font.pixelSize: 11
+                            font.bold: true
+                        }
+                    }
+                    Text {
+                        anchors.left: offDot.right
+                        anchors.leftMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Off"
+                        color: !sbRoot.subOn ? "#f5f7fa" : "#a4acb7"
+                        font.family: "Inter"
+                        font.pixelSize: 13
+                        font.weight: Font.DemiBold
+                    }
+                    MouseArea {
+                        id: offHover
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: { player.setSubtitleTrack(""); subPopup.close() }
+                    }
+                }
+
+                // Track list / empty state
+                Item {
+                    y: 96
+                    width: parent.width
+                    height: subPopup.listH
+
+                    Text {
+                        visible: subPopup.trackCount === 0
+                        anchors.left: parent.left
+                        anchors.leftMargin: 16
+                        anchors.top: parent.top
+                        anchors.topMargin: 8
+                        width: parent.width - 32
+                        wrapMode: Text.WordWrap
+                        text: "No embedded subtitles in this file."
+                        color: "#838b97"
+                        font.family: "Inter"
+                        font.pixelSize: 13
+                    }
+
+                    ListView {
+                        visible: subPopup.trackCount > 0
+                        anchors.fill: parent
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        anchors.topMargin: 2
+                        clip: true
+                        spacing: 2
+                        boundsBehavior: Flickable.StopAtBounds
+                        model: player.subtitleTracks
+                        delegate: Rectangle {
+                            id: sbRow
+                            required property var modelData
+                            width: ListView.view.width
+                            height: 46
+                            radius: 8
+                            property bool sel: modelData.selected === true
+                            color: sel ? "#1affffff" : (sbRowHover.containsMouse ? "#0affffff" : "#00000000")
+                            border.color: sel ? "#16ffffff" : "#00000000"
+                            border.width: 1
+
+                            Rectangle {
+                                id: sbDot
+                                x: 10
+                                y: 15
+                                width: 16
+                                height: 16
+                                radius: 8
+                                color: sbRow.sel ? page.gold : "#12ffffff"
+                                Text {
+                                    anchors.centerIn: parent
+                                    visible: sbRow.sel
+                                    text: "✓"
+                                    color: "#13151b"
+                                    font.pixelSize: 11
+                                    font.bold: true
+                                }
+                            }
+                            Text {
+                                anchors.left: sbDot.right
+                                anchors.leftMargin: 11
+                                anchors.right: parent.right
+                                anchors.rightMargin: 12
+                                y: 7
+                                text: sbRoot.trackTitle(sbRow.modelData)
+                                elide: Text.ElideRight
+                                color: "#f5f7fa"
+                                font.family: "Inter"
+                                font.pixelSize: 13
+                                font.weight: Font.Medium
+                            }
+                            Text {
+                                anchors.left: sbDot.right
+                                anchors.leftMargin: 11
+                                anchors.right: parent.right
+                                anchors.rightMargin: 12
+                                y: 25
+                                text: sbRoot.trackMeta(sbRow.modelData)
+                                elide: Text.ElideRight
+                                color: "#a4acb7"
+                                font.family: "Inter"
+                                font.pixelSize: 11
+                            }
+                            MouseArea {
+                                id: sbRowHover
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: { player.setSubtitleTrack(sbRow.modelData.id); subPopup.close() }
+                            }
+                        }
+                    }
+                }
+
+                // Sync-delay footer
+                Item {
+                    y: subPopup.height - 40
+                    width: parent.width
+                    height: 40
+                    Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: "#12ffffff" }
+                    RowLayout {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 6
+                        Text {
+                            text: "SYNC"
+                            color: "#838b97"
+                            font.family: "Inter"
+                            font.pixelSize: 11
+                            font.bold: true
+                        }
+                        DelayStepButton {
+                            text: "-0.1"
+                            onClicked: player.setSubDelay(Math.round((player.subDelaySec - 0.1) * 100) / 100)
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                            text: (player.subDelaySec >= 0 ? "+" : "") + player.subDelaySec.toFixed(2) + "s"
+                            color: "#f5f7fa"
+                            font.family: "Consolas"
+                            font.pixelSize: 13
+                        }
+                        DelayStepButton {
+                            text: "+0.1"
+                            onClicked: player.setSubDelay(Math.round((player.subDelaySec + 0.1) * 100) / 100)
+                        }
+                        Button {
+                            id: subReset
+                            visible: Math.abs(player.subDelaySec) > 0.0001
+                            flat: true
+                            hoverEnabled: true
+                            implicitWidth: 24
+                            implicitHeight: 24
+                            background: Rectangle { radius: 12; color: subReset.hovered ? "#12ffffff" : "#00000000" }
+                            contentItem: Text {
+                                text: "↺"
+                                color: "#a4acb7"
+                                font.pixelSize: 14
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            onClicked: player.setSubDelay(0)
+                        }
+                    }
+                }
+            }
         }
     }
 }

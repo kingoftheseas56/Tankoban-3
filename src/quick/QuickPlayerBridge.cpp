@@ -3,6 +3,8 @@
 #include "engine/MpvController.h"
 #include "engine/PlaybackClock.h"
 
+#include <QVariantMap>
+
 #include <algorithm>
 #include <cmath>
 
@@ -19,6 +21,29 @@ QString statusName(PlayerSnapshot::Status status)
     case PlayerSnapshot::Error: return QStringLiteral("error");
     }
     return QStringLiteral("idle");
+}
+
+// Ports PlayerSnapshot TrackInfo -> a QVariantMap the QML menus read by key.
+QVariantList toTrackList(const QVector<TrackInfo>& tracks)
+{
+    QVariantList out;
+    out.reserve(tracks.size());
+    for (const TrackInfo& t : tracks) {
+        QVariantMap m;
+        m.insert(QStringLiteral("id"), t.id);
+        m.insert(QStringLiteral("label"), t.label);
+        m.insert(QStringLiteral("lang"), t.lang);
+        m.insert(QStringLiteral("selected"), t.selected);
+        m.insert(QStringLiteral("codec"), t.codec);
+        m.insert(QStringLiteral("channels"), t.channels);
+        m.insert(QStringLiteral("title"), t.title);
+        m.insert(QStringLiteral("isDefault"), t.isDefault);
+        m.insert(QStringLiteral("forced"), t.forced);
+        m.insert(QStringLiteral("hearingImpaired"), t.hearingImpaired);
+        m.insert(QStringLiteral("external"), t.external);
+        out.push_back(m);
+    }
+    return out;
 }
 } // namespace
 
@@ -114,6 +139,40 @@ void QuickPlayerBridge::setRate(double value)
     if (!m_controller)
         return;
     m_controller->setRate(std::clamp(value, 0.25, 3.0));
+}
+
+QVariantList QuickPlayerBridge::audioTracks() const
+{
+    return toTrackList(m_snapshot.audioTracks);
+}
+
+QVariantList QuickPlayerBridge::subtitleTracks() const
+{
+    return toTrackList(m_snapshot.subtitleTracks);
+}
+
+void QuickPlayerBridge::setAudioTrack(const QString& id)
+{
+    if (m_controller)
+        m_controller->setAudioTrack(id);
+}
+
+void QuickPlayerBridge::setSubtitleTrack(const QString& id)
+{
+    if (m_controller)
+        m_controller->setSubtitleTrack(id);   // empty -> "no"
+}
+
+void QuickPlayerBridge::setAudioDelay(double sec)
+{
+    if (m_controller)
+        m_controller->setAudioDelay(sec);
+}
+
+void QuickPlayerBridge::setSubDelay(double sec)
+{
+    if (m_controller)
+        m_controller->setSubDelay(sec);
 }
 
 void QuickPlayerBridge::setRenderReady()

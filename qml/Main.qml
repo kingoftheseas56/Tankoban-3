@@ -22,6 +22,30 @@ ApplicationWindow {
     // core (which only dies at app exit), avoiding the mpv teardown use-after-free.
     QuickPlayerBridge { id: appPlayer }
 
+    // Borderless fullscreen via GEOMETRY — never Window.FullScreen, which triggers
+    // Windows' exclusive-fullscreen transition (the blink/flash on toggle, QTBUG-51093).
+    // The window is frameless (flags above), so one geometry swap covers the screen with
+    // zero OS transition. The +1px height dodges Windows' exclusive-fullscreen optimization
+    // path (Qt-forum-confirmed trick). See feedback_qt_fullscreen_blink_borderless_geometry_fix.
+    property bool fakeFullscreen: false
+    property rect savedGeometry: Qt.rect(0, 0, 0, 0)
+    function toggleFullscreen() {
+        if (!fakeFullscreen) {
+            savedGeometry = Qt.rect(win.x, win.y, win.width, win.height)
+            win.x = Screen.virtualX
+            win.y = Screen.virtualY
+            win.width = Screen.width
+            win.height = Screen.height + 1
+            fakeFullscreen = true
+        } else {
+            win.x = savedGeometry.x
+            win.y = savedGeometry.y
+            win.width = savedGeometry.width
+            win.height = savedGeometry.height
+            fakeFullscreen = false
+        }
+    }
+
     header: ToolBar {
         visible: !(stack.currentItem && stack.currentItem.playerSurface)
         height: visible ? 48 : 0
