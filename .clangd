@@ -4,11 +4,11 @@
 # defines, C++20), so clangd parses Tankoban-3 with the same understanding CLion has —
 # everywhere, not just inside JetBrains.
 CompileFlags:
-  CompilationDatabase: cmake-build-debug-visual-studio
-  # The DB is an MSVC (cl.exe) build; drop a few cl-only flags clang doesn't recognise
-  # so they don't show up as spurious "unknown argument" diagnostics.
+  CompilationDatabase: out
+  # The DB is an MSVC (cl.exe) build; drop cl-only warning-control flags but keep
+  # -external:I... include paths, because CMake emits Qt/mpv includes that way.
   Remove:
-    - -external:*
-    - /external:*
+    - -external:W*
+    - /external:W*
     - -Zc:*
     - /Zc:*

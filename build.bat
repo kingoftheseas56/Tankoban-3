@@ -2,7 +2,7 @@
 setlocal
 :: Tankoban 3 build — mirrors Tankoban 2's known-good toolchain
 :: (Qt6 msvc2022_64 + MSVC 2022 BuildTools + Ninja). Configures if needed,
-:: builds Release, then windeployqt so out\Tankoban3.exe launches standalone.
+:: builds Release, then windeployqt so both app exes launch standalone.
 
 set "QT_DIR=C:\tools\qt6sdk\6.10.2\msvc2022_64"
 set "VCVARS=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
@@ -25,7 +25,7 @@ if not exist "%BUILD_DIR%\CMakeCache.txt" (
     )
 )
 
-cmake --build "%BUILD_DIR%" --config Release --target Tankoban3 > "%LOG%" 2>&1
+cmake --build "%BUILD_DIR%" --config Release --target Tankoban3 Tankoban3Quick > "%LOG%" 2>&1
 set BUILD_EXIT=%ERRORLEVEL%
 
 if %BUILD_EXIT% NEQ 0 (
@@ -35,8 +35,9 @@ if %BUILD_EXIT% NEQ 0 (
     exit /b %BUILD_EXIT%
 )
 
-:: Deploy Qt runtime DLLs next to the exe so it launches standalone.
+:: Deploy Qt runtime DLLs next to the exes so they launch standalone.
 "%QT_DIR%\bin\windeployqt.exe" "%BUILD_DIR%\Tankoban3.exe" >nul 2>&1
+"%QT_DIR%\bin\windeployqt.exe" --qmldir "%PROJECT_DIR%\qml" "%BUILD_DIR%\Tankoban3Quick.exe" >nul 2>&1
 
 echo BUILD OK
 exit /b 0

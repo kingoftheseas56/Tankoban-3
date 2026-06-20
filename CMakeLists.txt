@@ -44,8 +44,15 @@ if(TB3_SCCACHE)
 endif()
 
 # Network: the addon engine (Stremio catalog/meta/stream over HTTP).
-# Svg: sidebar nav icons. OpenGL/OpenGLWidgets (libmpv player) get added later.
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network Svg OpenGL OpenGLWidgets)
+# Svg: sidebar nav icons. OpenGL/OpenGLWidgets keep the frozen Widgets player alive.
+# Quick/QuickControls2 are the new frontend lane.
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network Svg OpenGL OpenGLWidgets Quick QuickControls2 Qml)
+
+qt_standard_project_setup(REQUIRES 6.5)
+
+if(COMMAND qt_policy)
+    qt_policy(SET QTP0004 NEW)
+endif()
 
 # windeployqt — deploys the matching Qt DLLs + plugins (and, with --compiler-runtime,
 # the MSVC C++ runtime) next to an exe so it launches from ANY build dir, CLion's
@@ -59,44 +66,17 @@ if(WIN32)
     endif()
 endif()
 
-qt_add_executable(Tankoban3
-    src/main.cpp
-
+set(TB3_CORE_SOURCES
     src/engine/PlayerSnapshot.h
     src/engine/MpvController.h
     src/engine/MpvController.cpp
-    src/engine/MpvGlWidget.h
-    src/engine/MpvGlWidget.cpp
-    src/util/TimeFormat.h
-    src/util/TimeFormat.cpp
     src/engine/PlaybackClock.h
     src/engine/PlaybackClock.cpp
-    src/player/PlayerView.h
-    src/player/PlayerView.cpp
-    src/player/PlayerLoadingOverlay.h
-    src/player/PlayerLoadingOverlay.cpp
-    src/player/HotkeyDispatcher.h
-    src/player/HotkeyDispatcher.cpp
+    src/util/TimeFormat.h
+    src/util/TimeFormat.cpp
     src/util/Theme.h
     src/util/VolumeCurve.h
     src/util/VolumeCurve.cpp
-    src/chrome/SeekBar.h
-    src/chrome/SeekBar.cpp
-    src/chrome/VolumeControl.h
-    src/chrome/VolumeControl.cpp
-    src/chrome/AudioMenu.h
-    src/chrome/AudioMenu.cpp
-    src/chrome/TimeLabel.h
-    src/chrome/TimeLabel.cpp
-    src/chrome/TitleInfo.h
-    src/chrome/TitleInfo.cpp
-    src/chrome/TransportBar.h
-    src/chrome/TransportBar.cpp
-    src/chrome/SubtitleMenu.h
-    src/chrome/SubtitleMenu.cpp
-    src/chrome/SpeedMenu.h
-    src/chrome/SpeedMenu.cpp
-
     src/core/MetaItem.h
     src/core/MetaDetail.h
     src/core/AddonClient.h
@@ -118,7 +98,38 @@ qt_add_executable(Tankoban3
     src/core/AddonStoreModels.h
     src/core/StremioAddonsProvider.h
     src/core/StremioAddonsProvider.cpp
+    src/core/torrentstream/LtLinkSmoke.h
+    src/core/torrentstream/LtLinkSmoke.cpp
+    src/core/torrentstream/StreamEngine.h
+    src/core/torrentstream/StreamEngine.cpp
+)
 
+set(TB3_WIDGET_SOURCES
+    src/main.cpp
+    src/engine/MpvGlWidget.h
+    src/engine/MpvGlWidget.cpp
+    src/player/PlayerView.h
+    src/player/PlayerView.cpp
+    src/player/PlayerLoadingOverlay.h
+    src/player/PlayerLoadingOverlay.cpp
+    src/player/HotkeyDispatcher.h
+    src/player/HotkeyDispatcher.cpp
+    src/chrome/SeekBar.h
+    src/chrome/SeekBar.cpp
+    src/chrome/VolumeControl.h
+    src/chrome/VolumeControl.cpp
+    src/chrome/AudioMenu.h
+    src/chrome/AudioMenu.cpp
+    src/chrome/TimeLabel.h
+    src/chrome/TimeLabel.cpp
+    src/chrome/TitleInfo.h
+    src/chrome/TitleInfo.cpp
+    src/chrome/TransportBar.h
+    src/chrome/TransportBar.cpp
+    src/chrome/SubtitleMenu.h
+    src/chrome/SubtitleMenu.cpp
+    src/chrome/SpeedMenu.h
+    src/chrome/SpeedMenu.cpp
     src/ui/Theme.h
     src/ui/Icons.h
     src/ui/Sidebar.h
@@ -191,16 +202,49 @@ qt_add_executable(Tankoban3
     src/ui/ShowsPage.cpp
 )
 
-target_include_directories(Tankoban3 PRIVATE ${CMAKE_SOURCE_DIR}/src)
+set(TB3_QUICK_QML
+    qml/Main.qml
+    qml/HomePage.qml
+    qml/FeaturedHero.qml
+    qml/SeriesPage.qml
+    qml/SourcesPage.qml
+    qml/PlayerPage.qml
+)
 
-target_link_libraries(Tankoban3 PRIVATE
+add_library(Tankoban3Core STATIC ${TB3_CORE_SOURCES})
+target_include_directories(Tankoban3Core PUBLIC ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(Tankoban3Core PUBLIC
     Qt6::Core
     Qt6::Gui
-    Qt6::Widgets
     Qt6::Network
+)
+
+qt_add_executable(Tankoban3 ${TB3_WIDGET_SOURCES})
+target_link_libraries(Tankoban3 PRIVATE
+    Tankoban3Core
+    Qt6::Widgets
     Qt6::Svg
     Qt6::OpenGL
     Qt6::OpenGLWidgets
+)
+
+qt_add_executable(Tankoban3Quick src/quick/main.cpp)
+target_include_directories(Tankoban3Quick PRIVATE ${CMAKE_SOURCE_DIR}/src/quick)
+qt_add_qml_module(Tankoban3Quick
+    URI Tankoban3Quick
+    VERSION 1.0
+    QML_FILES ${TB3_QUICK_QML}
+    SOURCES
+        src/quick/MpvObject.h
+        src/quick/MpvObject.cpp
+        src/quick/QuickPlayerBridge.h
+        src/quick/QuickPlayerBridge.cpp
+)
+target_link_libraries(Tankoban3Quick PRIVATE
+    Tankoban3Core
+    Qt6::Quick
+    Qt6::QuickControls2
+    Qt6::OpenGL
 )
 
 
@@ -216,7 +260,9 @@ set_target_properties(libmpv PROPERTIES
     IMPORTED_LOCATION_RELEASE ${LIBMPV_DIR}/bin/libmpv-2.dll
     IMPORTED_CONFIGURATIONS Release
     INTERFACE_INCLUDE_DIRECTORIES ${LIBMPV_DIR}/include)
+target_link_libraries(Tankoban3Core PRIVATE libmpv)
 target_link_libraries(Tankoban3 PRIVATE libmpv)
+target_link_libraries(Tankoban3Quick PRIVATE libmpv)
 
 # Copy the libmpv runtime dll next to the exe after build.
 add_custom_command(TARGET Tankoban3 POST_BUILD
@@ -224,16 +270,16 @@ add_custom_command(TARGET Tankoban3 POST_BUILD
             ${LIBMPV_DIR}/bin/libmpv-2.dll "$<TARGET_FILE_DIR:Tankoban3>"
     COMMENT "Deploying libmpv-2.dll")
 
+add_custom_command(TARGET Tankoban3Quick POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${LIBMPV_DIR}/bin/libmpv-2.dll "$<TARGET_FILE_DIR:Tankoban3Quick>"
+    COMMENT "Deploying libmpv-2.dll for Tankoban3Quick")
+
 # ── libtorrent (Phase 2: native torrent streaming engine — vendored STATIC) ───
 # Mirrors Tankoban 2's PROVEN static recipe for this machine: static
 # torrent-rasterbar.lib + header-only Boost + static OpenSSL at C:/tools. STATIC
 # => nothing to deploy. Gated: if absent, HAS_LIBTORRENT stays undefined, the
 # engine code compiles to a no-op stub, and the app still builds + runs.
-target_sources(Tankoban3 PRIVATE
-    src/core/torrentstream/LtLinkSmoke.h
-    src/core/torrentstream/LtLinkSmoke.cpp
-    src/core/torrentstream/StreamEngine.h
-    src/core/torrentstream/StreamEngine.cpp)
 
 set(LIBTORRENT_ROOT   "C:/tools/libtorrent-2.0-msvc" CACHE PATH "libtorrent MSVC install")
 set(BOOST_ROOT        "C:/tools/boost-1.84.0"        CACHE PATH "Boost headers")
@@ -243,11 +289,11 @@ find_library(LIBTORRENT_LIBRARY torrent-rasterbar HINTS "${LIBTORRENT_ROOT}/lib"
 find_path(BOOST_INCLUDE_DIR boost/version.hpp HINTS "${BOOST_ROOT}")
 if(LIBTORRENT_INCLUDE_DIR AND LIBTORRENT_LIBRARY AND BOOST_INCLUDE_DIR)
     message(STATUS "TB3: libtorrent found -> ${LIBTORRENT_LIBRARY}")
-    target_include_directories(Tankoban3 PRIVATE
+    target_include_directories(Tankoban3Core PRIVATE
         "${LIBTORRENT_INCLUDE_DIR}" "${BOOST_INCLUDE_DIR}" "${OPENSSL_MSVC_ROOT}/include")
-    target_compile_definitions(Tankoban3 PRIVATE
+    target_compile_definitions(Tankoban3Core PRIVATE
         HAS_LIBTORRENT=1 TORRENT_USE_OPENSSL BOOST_ALL_NO_LIB _WIN32_WINNT=0x0A00)
-    target_link_libraries(Tankoban3 PRIVATE
+    target_link_libraries(Tankoban3Core PRIVATE
         "${LIBTORRENT_LIBRARY}"
         "${OPENSSL_MSVC_ROOT}/lib/libssl.lib"
         "${OPENSSL_MSVC_ROOT}/lib/libcrypto.lib"
@@ -266,6 +312,13 @@ add_custom_command(TARGET Tankoban3 POST_BUILD
             "$<TARGET_FILE_DIR:Tankoban3>/imageformats/qwebp.dll"
     COMMENT "Deploying qwebp.dll (WebP poster decoder)")
 
+add_custom_command(TARGET Tankoban3Quick POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:Tankoban3Quick>/imageformats"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/resources/imageformats/qwebp.dll"
+            "$<TARGET_FILE_DIR:Tankoban3Quick>/imageformats/qwebp.dll"
+    COMMENT "Deploying qwebp.dll for Tankoban3Quick")
+
 # Deploy Qt runtime + MSVC CRT next to the app so CLion's build can launch it directly
 # (build.bat runs windeployqt separately for out/; this also covers CLion's build dir).
 if(WIN32 AND TB3_WINDEPLOYQT)
@@ -273,6 +326,12 @@ if(WIN32 AND TB3_WINDEPLOYQT)
         COMMAND "${TB3_WINDEPLOYQT}" --compiler-runtime --no-translations
                 "$<TARGET_FILE:Tankoban3>"
         COMMENT "Deploying Qt runtime + CRT next to Tankoban3"
+        VERBATIM)
+    add_custom_command(TARGET Tankoban3Quick POST_BUILD
+        COMMAND "${TB3_WINDEPLOYQT}" --qmldir "${CMAKE_SOURCE_DIR}/qml"
+                --compiler-runtime --no-translations
+                "$<TARGET_FILE:Tankoban3Quick>"
+        COMMENT "Deploying Qt runtime + QML + CRT next to Tankoban3Quick"
         VERBATIM)
 endif()
 
