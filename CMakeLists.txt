@@ -28,6 +28,21 @@ if(MSVC)
     set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG "Release")
 endif()
 
+# Compiler cache — agents rebuild constantly; caching cuts rebuild latency hard.
+# find_program-guarded so a machine without sccache builds exactly as before.
+find_program(TB3_SCCACHE NAMES sccache HINTS "$ENV{LOCALAPPDATA}/Microsoft/WinGet/Links")
+if(TB3_SCCACHE)
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${TB3_SCCACHE}")
+    set(CMAKE_C_COMPILER_LAUNCHER   "${TB3_SCCACHE}")
+    if(MSVC)
+        # sccache can't cache MSVC's shared-PDB /Zi; switch Debug to embedded /Z7 so the
+        # debug build is cacheable too (Release carries no debug info — already cacheable).
+        string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+        string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}")
+    endif()
+    message(STATUS "TB3: compiler cache enabled -> ${TB3_SCCACHE}")
+endif()
+
 # Network: the addon engine (Stremio catalog/meta/stream over HTTP).
 # Svg: sidebar nav icons. OpenGL/OpenGLWidgets (libmpv player) get added later.
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network Svg OpenGL OpenGLWidgets)
