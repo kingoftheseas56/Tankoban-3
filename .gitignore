@@ -28,3 +28,6 @@ build.ninja
 # Vendored libmpv binaries (staged by setup_libmpv.bat; headers committed)
 /third_party/libmpv/lib/
 /third_party/libmpv/bin/
+
+# Generated API docs (regenerate with: doxygen Doxyfile)
+/docs/doxygen/

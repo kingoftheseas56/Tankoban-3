@@ -1,0 +1,16 @@
+# clang-tidy config for Tankoban-3 — general C++ correctness/perf checks that clangd
+# surfaces inline and that clang-tidy can run one-shot in CI/agent loops. This is the
+# GENERAL C++ cop; it does NOT know Qt-specific footguns (signal/slot, QString copies,
+# container detach) — that is Clazy's job, tracked separately. Kept conservative so the
+# signal-to-noise stays high.
+Checks: >
+  clang-diagnostic-*,
+  clang-analyzer-*,
+  bugprone-*,
+  performance-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -clang-analyzer-optin.cplusplus.UninitializedObject
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*[/\\]src[/\\].*'
+FormatStyle: none

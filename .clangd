@@ -1,0 +1,14 @@
+# clangd config — points the portable C++ brain (clangd + clang-tidy, as used by
+# VS Code / Codex / Claude / any LSP shell) at the compile database CLion already
+# generates. That DB carries the REAL per-file flags (Qt6 + libtorrent + mpv includes,
+# defines, C++20), so clangd parses Tankoban-3 with the same understanding CLion has —
+# everywhere, not just inside JetBrains.
+CompileFlags:
+  CompilationDatabase: cmake-build-debug-visual-studio
+  # The DB is an MSVC (cl.exe) build; drop a few cl-only flags clang doesn't recognise
+  # so they don't show up as spurious "unknown argument" diagnostics.
+  Remove:
+    - -external:*
+    - /external:*
+    - -Zc:*
+    - /Zc:*
