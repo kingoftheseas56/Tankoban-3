@@ -121,7 +121,7 @@ QLabel#LoadingText {
     body->setAutoFillBackground(false);
 
     auto* outer = new QVBoxLayout(body);
-    outer->setContentsMargins(48, 128, 48, 128);
+    outer->setContentsMargins(48, 128, 48, 16);   // tight bottom padding so the list reaches the page bottom
     outer->setSpacing(48);
 
     auto* inner = new QWidget(body);
@@ -153,9 +153,7 @@ QLabel#LoadingText {
     m_streamList = new StreamList(inner);
     m_streamList->hide();
     connect(m_streamList, &StreamList::streamActivated, this, &PlayPickerPage::streamSelected);
-    col->addWidget(m_streamList);
-
-    col->addStretch();
+    col->addWidget(m_streamList, 1);   // stretch: the source list fills the column height (Harbor-like)
 
     auto* centeredRow = new QWidget(body);
     centeredRow->setAttribute(Qt::WA_TranslucentBackground);
@@ -165,8 +163,7 @@ QLabel#LoadingText {
     centeredLayout->addStretch();
     centeredLayout->addWidget(inner, 1);
     centeredLayout->addStretch();
-    outer->addWidget(centeredRow);
-    outer->addStretch();
+    outer->addWidget(centeredRow, 1);   // stretch: the centred picker column fills the page height
 
     // Harbor's picker root is `overflow-y-auto`: header + content scroll over a FIXED
     // backdrop. The backdrop stays a lowered sibling (NOT inside the viewport); the
